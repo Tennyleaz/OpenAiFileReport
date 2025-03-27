@@ -6,9 +6,12 @@
         xmlns:local="clr-namespace:OpenAiFileReport"
         mc:Ignorable="d"
         Loaded="FileSearchDemo_OnLoaded"
+        Closing="FileSearchDemo_OnClosing"
         Title="FileSearchDemo" Height="450" Width="800">
     <Grid>
-        <ListBox Margin="10,0,10,0" Name="inputFileListBox">
+        <Label Name="lbYourName" Margin="10,10,0,0" HorizontalAlignment="Left" VerticalAlignment="Top">You:</Label>
+        <Label Name="lbYourFiles" Margin="10,35,0,0" HorizontalAlignment="Left" VerticalAlignment="Top">Your Files:</Label>
+        <ListBox Margin="10,60,10,50" Name="inputFileListBox" Width="200" HorizontalAlignment="Left">
             <ListBox.ItemTemplate>
                 <DataTemplate DataType="{x:Type local:InputFileModel}">
                     <Grid>
@@ -32,5 +35,6 @@
                 </Style>
             </ListBox.ItemContainerStyle>
         </ListBox>
+        <Button Name="btnAddFile" Click="BtnAddFile_OnClick" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="10,0,0,10" Height="30" Width="200">Add File</Button>
     </Grid>
 </Window>

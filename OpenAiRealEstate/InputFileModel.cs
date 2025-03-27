@@ -122,6 +122,7 @@ internal class InputFileModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(CanCheck));
     }
 
+    public string PineconeId { get; set; }
 
     protected virtual void OnPropertyChanged(string propertyName)
     {
