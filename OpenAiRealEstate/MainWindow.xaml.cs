@@ -255,11 +255,17 @@ public partial class MainWindow : Window
         string js = @"{""type"":""object"",""properties"":{""success"":{""type"":""boolean""},""filled_template"":{""type"":""string""},""error"":{""type"":""string"",""nullable"":true}},""required"":[""success"",""filled_template"",""error""],""additionalProperties"":false}";
         JsonNode schema = JsonNode.Parse(js);
 
+        string systemPrompt = "Generate a structured report using the provided template. Fill in the placeholders with relevant content from the conversation record.";
+        GeneratePromptWin gpw = new GeneratePromptWin(systemPrompt);
+        gpw.Owner = this;
+        gpw.ShowDialog();
+        systemPrompt = gpw.Prompt;
+
         ChatRequest chatRequest = new ChatRequest(
             model: "gpt-4o-mini",
             messages: new List<Message>()
             {
-                new Message(Role.System, "Generate a structured report using the provided template. Fill in the placeholders with relevant content from the conversation record."),
+                new Message(Role.System, systemPrompt),
                 new Message(Role.User, userMessage)
             },
             responseFormat: ChatResponseFormat.JsonSchema,

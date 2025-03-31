@@ -7,11 +7,11 @@
         mc:Ignorable="d"
         Loaded="FileSearchDemo_OnLoaded"
         Closing="FileSearchDemo_OnClosing"
-        Title="FileSearchDemo" Height="450" Width="800">
+        Title="RAG Demo with Pinecone and OpenAI" Height="450" Width="800" WindowStartupLocation="CenterScreen">
     <Grid>
-        <Label Name="lbYourName" Margin="10,10,0,0" HorizontalAlignment="Left" VerticalAlignment="Top">You:</Label>
+        <Label Name="lbYourName" Margin="10,10,0,0" MaxWidth="200" HorizontalAlignment="Left" VerticalAlignment="Top">You:</Label>
         <Label Name="lbYourFiles" Margin="10,35,0,0" HorizontalAlignment="Left" VerticalAlignment="Top">Your Files:</Label>
-        <ListBox Margin="10,60,10,50" Name="inputFileListBox" Width="200" HorizontalAlignment="Left">
+        <ListBox Margin="10,60,10,90" Name="inputFileListBox" Width="200" HorizontalAlignment="Left">
             <ListBox.ItemTemplate>
                 <DataTemplate DataType="{x:Type local:InputFileModel}">
                     <Grid>
@@ -35,6 +35,24 @@
                 </Style>
             </ListBox.ItemContainerStyle>
         </ListBox>
-        <Button Name="btnAddFile" Click="BtnAddFile_OnClick" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="10,0,0,10" Height="30" Width="200">Add File</Button>
+        <Button Name="btnAddFile" Click="BtnAddFile_OnClick" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="10,0,0,50" Height="30" Width="200">Add File</Button>
+        <Button Name="btnDelete" Click="BtnDelete_OnClick" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="10,0,0,10" Height="30" Width="200">Delete Selected</Button>
+
+        <DockPanel Margin="240,10,10,10">
+            <TextBlock DockPanel.Dock="Top" Margin="0">Ask AI:</TextBlock>
+            <TextBox DockPanel.Dock="Top" Name="tbUserPrompt" Margin="0,0,0,4" Height="40" TextWrapping="Wrap"
+                     AcceptsReturn="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"/>
+            <TextBlock DockPanel.Dock="Top" Margin="0">System Prompt:</TextBlock>
+            <TextBox DockPanel.Dock="Top" Name="tbSystemPrompt" Margin="0,0,0,0" Height="40" TextWrapping="Wrap"
+                     AcceptsReturn="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"/>
+            <Button Name="btnAsk" Click="BtnAsk_OnClick" DockPanel.Dock="Top" HorizontalAlignment="Right" Width="100" Height="30">Go</Button>
+            <TextBlock DockPanel.Dock="Top" Margin="0">Output:</TextBlock>
+            
+            <GroupBox DockPanel.Dock="Bottom" Header="Logs" Margin="0" Height="80">
+                <TextBlock Name="tbLogs" Margin="2" TextWrapping="NoWrap"></TextBlock>
+            </GroupBox>
+
+            <TextBox Name="tbOutput" Margin="0,0,0,10"></TextBox>
+        </DockPanel>
     </Grid>
 </Window>

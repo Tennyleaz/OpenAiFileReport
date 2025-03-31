@@ -13,7 +13,9 @@
     <PackageReference Include="AssemblyAI" Version="1.2.2" />
     <PackageReference Include="MdXaml" Version="1.27.0" />
     <PackageReference Include="OpenAI-DotNet" Version="8.6.3" />
+    <PackageReference Include="PdfPig" Version="0.1.10" />
     <PackageReference Include="Pinecone.Client" Version="3.0.0" />
+    <PackageReference Include="PortableSettingsProvider" Version="0.2.5" />
   </ItemGroup>
 
   <ItemGroup>

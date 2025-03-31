@@ -1,0 +1,17 @@
+﻿<Window x:Class="OpenAiFileReport.GeneratePromptWin"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:OpenAiFileReport"
+        mc:Ignorable="d"
+        WindowStartupLocation="CenterScreen"
+        Closing="GeneratePromptWin_OnClosing"
+        Title="Edit Prompt" Height="300" Width="500">
+    <Grid>
+        <TextBlock Margin="10,10,0,0" FontSize="16">Your System Prompt:</TextBlock>
+        <TextBox Name="tbPrompt" Margin="10,40,10,60" FontSize="14" TextWrapping="Wrap" AcceptsReturn="True"
+                 VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"></TextBox>
+        <Button Name="btnGo" Click="BtnGo_OnClick" Margin="15" VerticalAlignment="Bottom" Width="150" Height="30">Start Generate</Button>
+    </Grid>
+</Window>

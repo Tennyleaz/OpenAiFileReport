@@ -25,10 +25,10 @@ namespace OpenAiFileReport.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("00000000-0000-0000-0000-000000000000")]
-        public global::System.Guid UserId {
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string UserId {
             get {
-                return ((global::System.Guid)(this["UserId"]));
+                return ((string)(this["UserId"]));
             }
             set {
                 this["UserId"] = value;
