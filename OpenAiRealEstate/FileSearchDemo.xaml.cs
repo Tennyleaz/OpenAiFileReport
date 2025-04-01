@@ -20,7 +20,7 @@ namespace OpenAiFileReport
     {
         private readonly string _pinecodeApiKey, _openAiKey;
         private readonly Guid userId;
-        private readonly string indexName;
+        private const string indexName = "rag-demo";
         private readonly OpenAIClient openAiClient;
         private readonly PineconeClient pineconeClient;
         private readonly string tempFolder;  // %localappdata%/OpenAiTempFiles
@@ -29,7 +29,7 @@ namespace OpenAiFileReport
         internal ObservableCollection<InputFileModel> InputFiles = new ObservableCollection<InputFileModel>();
         private const string EMBEDDING_MODEL = "text-embedding-ada-002";
         private const int DIMENTION = 1536;
-        private const string NAMESPACE = "documents";
+        private readonly string NAMESPACE;
 
         public FileSearchDemo()
         {
@@ -39,7 +39,7 @@ namespace OpenAiFileReport
                 Properties.Settings.Default.UserId = Guid.NewGuid().ToString();
                 Properties.Settings.Default.Save();
             }
-            indexName = "user-" + Properties.Settings.Default.UserId;
+            NAMESPACE = "user-" + Properties.Settings.Default.UserId.Substring(0,8);
             tempFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "OpenAiTempFiles");
 
             try
@@ -62,7 +62,7 @@ namespace OpenAiFileReport
 
         private async void FileSearchDemo_OnLoaded(object sender, RoutedEventArgs e)
         {
-            lbYourName.Content = "You: " + indexName;
+            lbYourName.Content = "You: " + NAMESPACE;
             LoadFileList();
             inputFileListBox.ItemsSource = InputFiles;
             tbSystemPrompt.Text = "You are an expert assistant that helps users summarize and interpret retrieved text from document searches.";
@@ -119,13 +119,16 @@ namespace OpenAiFileReport
             indexClient = pineconeClient.Index(host: myIndex.Host);
             tbLogs.Text += "\nHost: " + myIndex.Host;
             
-            var r = await indexClient.DescribeIndexStatsAsync(new DescribeIndexStatsRequest());
+            DescribeIndexStatsResponse r = await indexClient.DescribeIndexStatsAsync(new DescribeIndexStatsRequest());
             if (r.Namespaces != null)
             {
-                var ns = r.Namespaces[NAMESPACE];
-                if (ns != null)
+                if (r.Namespaces.TryGetValue(NAMESPACE, out NamespaceSummary ns))
                 {
                     tbLogs.Text += "\nVectors: " + ns.VectorCount;
+                }
+                else
+                {
+                    tbLogs.Text += "\nVectors: 0";
                 }
             }
         }
