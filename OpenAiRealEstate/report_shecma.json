@@ -1,0 +1,21 @@
+{
+   "type":"object",
+   "properties":{
+      "success":{
+         "type":"boolean"
+      },
+      "filled_template":{
+         "type":"string"
+      },
+      "error":{
+         "type":"string",
+         "nullable":true
+      }
+   },
+   "required":[
+      "success",
+      "filled_template",
+      "error"
+   ],
+   "additionalProperties":false
+}

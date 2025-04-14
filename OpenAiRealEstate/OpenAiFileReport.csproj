@@ -10,6 +10,14 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="report_shecma.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="report_shecma.json" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="AssemblyAI" Version="1.2.2" />
     <PackageReference Include="MdXaml" Version="1.27.0" />
     <PackageReference Include="OpenAI-DotNet" Version="8.6.3" />
