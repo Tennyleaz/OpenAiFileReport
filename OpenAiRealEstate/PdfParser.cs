@@ -36,7 +36,7 @@ namespace OpenAiFileReport
         /// <summary>
         /// Extracts a text from a PDF file.
         /// </summary>
-        /// <param name="inFileName">the full path to the pdf file.</param>
+        /// <param name="fileInfo">the full path to the pdf file.</param>
         /// <returns>the extracted text</returns>
         public List<string> ExtractText(FileInfo fileInfo)
         {
