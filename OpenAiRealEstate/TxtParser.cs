@@ -10,6 +10,22 @@ namespace OpenAiFileReport
 {
     internal class TxtParser
     {
+        public string ExtractWhole(FileInfo fileInfo)
+        {
+            try
+            {
+                string text = File.ReadAllText(fileInfo.FullName);
+                text = text.Trim();
+                text = RemoveCJKWhitespace(text);
+                return $"#File:{fileInfo.Name} #Text:\n{text}";
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+            }
+            return null;
+        }
+
         public List<string> ExtractText(FileInfo fileInfo)
         {
             List<string> datas = new List<string>();
@@ -27,7 +43,7 @@ namespace OpenAiFileReport
                     {
                         if (i > start) // Avoid empty paragraphs from consecutive blank lines
                         {
-                            lines[i] = RemovCJKWhitespace(lines[i]);
+                            lines[i] = RemoveCJKWhitespace(lines[i]);
                             string paragraph = string.Join("\n", lines.Skip(start).Take(i - start));
                             paragraph = paragraph.Trim();
                             if (!string.IsNullOrWhiteSpace(paragraph))
@@ -37,7 +53,7 @@ namespace OpenAiFileReport
                                 for (int j = 0; j < results.Count; j++)
                                 {
                                     paragraphCount++;
-                                    string newParagraph = $"#File:{fileName} #Date:{fileDate} #Paragraph:{paragraphCount}\n{results[j]}";
+                                    string newParagraph = $"#File:{fileName} #Modified:{fileDate} #Paragraph:{paragraphCount}\n{results[j]}";
                                     datas.Add(newParagraph);
                                 }
                             }
@@ -49,7 +65,7 @@ namespace OpenAiFileReport
                 if (start < lines.Length)
                 {
                     string lastParagraph = string.Join("\n", lines.Skip(start).Take(lines.Length - start));
-                    lastParagraph = RemovCJKWhitespace(lastParagraph);
+                    lastParagraph = RemoveCJKWhitespace(lastParagraph);
                     lastParagraph = lastParagraph.Trim();
                     if (!string.IsNullOrWhiteSpace(lastParagraph))
                     {
@@ -120,7 +136,7 @@ namespace OpenAiFileReport
             return result;
         }
 
-        private static string RemovCJKWhitespace(string input)
+        private static string RemoveCJKWhitespace(string input)
         {
             if (input == null)
                 return string.Empty;

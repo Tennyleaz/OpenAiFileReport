@@ -1,4 +1,5 @@
-﻿using System;
+﻿using OpenAI;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -82,7 +83,7 @@ namespace OpenAiFileReport
                         if (!string.IsNullOrWhiteSpace(data))
                         {
                             // add filename and page info to data
-                            data = $"#File:{fileName} #Date:{fileDate} #Page:{page.Number}\n{data}";
+                            data = $"#File:{fileName} #Modified:{fileDate} #Page:{page.Number}\n{data}";
                             datas.Add(data);
                         }
                     }
@@ -97,6 +98,59 @@ namespace OpenAiFileReport
             }
         }
 
+        public string ExtractWhole(FileInfo fileInfo)
+        {
+            try
+            {
+                string text = "";
+                using (PdfDocument document = PdfDocument.Open(fileInfo.FullName))
+                {
+                    foreach (Page page in document.GetPages())
+                    {
+                        string data = string.Empty;
+                        List<Line> lines = new List<Line>();
+                        var currLine = new Line();
+                        lines.Add(currLine);
+                        foreach (Word word in page.GetWords())
+                        {
+                            var box = word.BoundingBox;
+                            if (!currLine.InSameLine(word))
+                            {
+                                currLine = new Line();
+                                lines.Add(currLine);
+                            }
+                            currLine.AddWord(word);
+                        }
+                        var leftMargin = lines.Min(l => l.Left);
+                        foreach (var line in lines)
+                        {
+                            var indent = line.Left - leftMargin;
+                            if (indent > 0)
+                            {
+                                //Console.Write(new string(' ', (int)indent / 14));
+                                int count = (int)indent / 14;
+                                for (int i = 0; i < count; i++)
+                                    data += ' ';
+                            }
+
+                            data += "\n" + line.ToString();
+                            //Console.WriteLine(line);
+                        }
+                        data = data.Trim();
+                        if (!string.IsNullOrWhiteSpace(data))
+                        {
+                            text += data + "\n";
+                        }
+                    }
+                }
+                return $"#File:{fileInfo.Name} #Text:\n{text}";
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+            }
+            return null;
+        }
     }
 
     public class Line

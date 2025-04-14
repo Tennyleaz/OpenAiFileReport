@@ -183,24 +183,27 @@ namespace OpenAiFileReport
         private async Task<string> ReadDocument(FileInfo fileInfo)
         {
             List<string> data;
+            string documentText;
             if (fileInfo.Extension == ".pdf")
             {
                 tbLogs.Text = "Reading PDF file...";
                 PDFParser parser = new PDFParser();
                 data = parser.ExtractText(fileInfo);
+                documentText = parser.ExtractWhole(fileInfo);
             }
             else if (fileInfo.Extension == ".txt")
             {
                 tbLogs.Text = "Reading TXT file...";
                 TxtParser parser = new TxtParser();
                 data = parser.ExtractText(fileInfo);
+                documentText = parser.ExtractWhole(fileInfo);
             }
             else
             {
                 MessageBox.Show("Does not supoort this file: " + fileInfo.Extension);
                 return null;
             }
-
+            string name = "File-" + Guid.NewGuid().ToString();
             tbLogs.Text = "Generating embeddings using GPT...";
             List<float[]> embeddings;
             try
@@ -221,8 +224,19 @@ namespace OpenAiFileReport
                 return null;
             }
 
+            tbLogs.Text = "Generating summary using GPT...";
+            try
+            {
+                await SaveSummary(documentText, fileInfo.Name, name);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("SaveSummary error!\n" + ex);
+                tbLogs.Text = ex.ToString();
+                return null;
+            }
+
             tbLogs.Text = "Upload embeddings to pinecone...";
-            string name = "File-" + Guid.NewGuid().ToString();
             try
             {
                 await StoreEmbeddings(name, data, embeddings, fileInfo.Name);
@@ -264,7 +278,8 @@ namespace OpenAiFileReport
                     {
                         ["pageNumber"] = i + 1,
                         ["fileName"] = filename,
-                        ["text"] = data[i]
+                        ["text"] = data[i],
+                        ["type"] = "chunk"
                     },
                 });
             }
@@ -275,6 +290,58 @@ namespace OpenAiFileReport
                 Namespace = NAMESPACE,
             };
             UpsertResponse response = await indexClient.UpsertAsync(request);
+        }
+
+        private async Task<string> GenerateSummary(string documentText)
+        {
+            ChatRequest chatRequest = new ChatRequest(
+                model: "gpt-4o-mini",
+                messages: new List<Message>()
+                {
+                    new Message(Role.System, "Summarize a document for the user. Use user's input language if possible."),
+                    new Message(Role.User, documentText)
+                }
+            );
+            ChatResponse chatResponse = await openAiClient.ChatEndpoint.GetCompletionAsync(chatRequest);
+            return chatResponse.Choices.First().ToString();
+        }
+
+        private async Task SaveSummary(string documentText, string fileName, string vectorid)
+        {
+            string summary = await GenerateSummary(documentText);
+            EmbeddingsResponse embeddingResponse = await openAiClient.EmbeddingsEndpoint.CreateEmbeddingAsync(summary, EMBEDDING_MODEL);
+            // get the embeddings double array
+            List<float[]> embeddings = new List<float[]>();
+            foreach (Datum dt in embeddingResponse.Data)
+            {
+                float[] embedding = dt.Embedding.Select(x => (float)x).ToArray();
+                embeddings.Add(embedding);
+            }
+            // save to pinecone
+            List<Vector> vectors = new List<Vector>();
+            // we should have only 1 item in vectors
+            for (int i = 0; i < embeddings.Count; i++)
+            {
+                vectors.Add(new Vector
+                {
+                    Id = vectorid + "-summary",
+                    Values = embeddings[i],
+                    Metadata = new Metadata
+                    {
+                        ["fileName"] = fileName,
+                        ["text"] = summary,
+                        ["type"] = "summary"
+                    },
+                });
+            }
+
+            UpsertRequest request = new UpsertRequest()
+            {
+                Vectors = vectors,
+                Namespace = NAMESPACE,
+            };
+            UpsertResponse upsertResponse = await indexClient.UpsertAsync(request);
+            Console.WriteLine(upsertResponse.UpsertedCount);
         }
 
         private void FileSearchDemo_OnClosing(object sender, System.ComponentModel.CancelEventArgs e)
@@ -314,6 +381,14 @@ namespace OpenAiFileReport
             IsEnabled = false;
             try
             {
+                //List<Tool> chatTools = new List<Tool>();
+                //Function function = Function.FromFunc<string, string>(
+                //    "get_summary",
+                //    GetSummary,
+                //    "Get summary of a document by file name.",
+                //    true);
+                //chatTools.Add(function);
+
                 string retrievedText = await QueryEmbeddings(tbUserPrompt.Text);
                 if (!string.IsNullOrEmpty(retrievedText))
                 {
@@ -326,8 +401,9 @@ namespace OpenAiFileReport
                         new Message(Role.System, tbSystemPrompt.Text),
                         new Message(Role.User, userPrompt)
                         }
-                    //responseFormat: ChatResponseFormat.JsonSchema,
-                    //jsonSchema: new JsonSchema("report_schema", schema)
+                        //tools: chatTools
+                        //responseFormat: ChatResponseFormat.JsonSchema,
+                        //jsonSchema: new JsonSchema("report_schema", schema)
                     );
                     ChatResponse chatResponse = await openAiClient.ChatEndpoint.GetCompletionAsync(chatRequest);
                     tbOutput.Text = chatResponse.Choices.First().ToString();
@@ -348,7 +424,7 @@ namespace OpenAiFileReport
             // $in Matches vectors with metadata values that are in a specified array.
             // Example: {"genre": {"$in": ["comedy", "documentary"]}}
             List<string> selectedFileNames = InputFiles.Where(x => x.IsSelected).Select(x => x.FileName).ToList();
-            if (selectedFileNames.Any())
+            if (selectedFileNames.Count > 0)
             {
                 return new Metadata
                 {
@@ -366,8 +442,9 @@ namespace OpenAiFileReport
             int selected = InputFiles.Count(x => x.IsSelected);
             if (selected <= 2)
                 return 3;
-            else
-                return (uint)(selected + 1);
+            if (selected >= 6)
+                return 6;
+            return (uint)(selected + 1);
         }
 
         private async Task<string> QueryEmbeddings(string query)
@@ -419,16 +496,18 @@ namespace OpenAiFileReport
                 Namespace= NAMESPACE,
                 Limit = 100,
             });
-            if (listResponse.Vectors == null || listResponse.Vectors.Any())
+            if (listResponse.Vectors == null || !listResponse.Vectors.Any())
             {
                 return;
             }
 
+            List<string> idList = listResponse.Vectors.Select(x => x.Id).ToList();
             var deleteResponse = await indexClient.DeleteAsync(new DeleteRequest
             {
-                Ids = listResponse.Vectors.Select(x => x.Id).ToList(),
+                Ids = idList,
                 Namespace = NAMESPACE,
             });
+            tbLogs.Text = "Deleted " + idList.Count + " items.";
         }
 
         private async void BtnDelete_OnClick(object sender, RoutedEventArgs e)
