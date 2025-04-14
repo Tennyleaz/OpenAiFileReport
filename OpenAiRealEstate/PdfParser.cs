@@ -38,12 +38,14 @@ namespace OpenAiFileReport
         /// </summary>
         /// <param name="inFileName">the full path to the pdf file.</param>
         /// <returns>the extracted text</returns>
-        public List<string> ExtractText(string inFileName)
+        public List<string> ExtractText(FileInfo fileInfo)
         {
             List<string> datas = new List<string>();
             try
             {
-                using (PdfDocument document = PdfDocument.Open(inFileName))
+                string fileName = fileInfo.Name;
+                string fileDate = fileInfo.LastWriteTime.ToString("yyyy-MM-dd");
+                using (PdfDocument document = PdfDocument.Open(fileInfo.FullName))
                 {
                     foreach (Page page in document.GetPages())
                     {
@@ -73,10 +75,16 @@ namespace OpenAiFileReport
                                     data += ' ';
                             }
 
-                            data += "\n" + line;
+                            data += "\n" + line.ToString();
                             //Console.WriteLine(line);
                         }
-                        datas.Add(data);
+                        data = data.Trim();
+                        if (!string.IsNullOrWhiteSpace(data))
+                        {
+                            // add filename and page info to data
+                            data = $"#File:{fileName} #Date:{fileDate} #Page:{page.Number}\n{data}";
+                            datas.Add(data);
+                        }
                     }
                 }
 
@@ -131,7 +139,7 @@ namespace OpenAiFileReport
             }
             return sb.ToString();
         }
-        public override string ToString() => ToString(0);
 
+        public override string ToString() => ToString(0);
     }
 }

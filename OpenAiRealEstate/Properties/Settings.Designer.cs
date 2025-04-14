@@ -34,5 +34,29 @@ namespace OpenAiFileReport.Properties {
                 this["UserId"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string SystemPrompt {
+            get {
+                return ((string)(this["SystemPrompt"]));
+            }
+            set {
+                this["SystemPrompt"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string UserPrompt {
+            get {
+                return ((string)(this["UserPrompt"]));
+            }
+            set {
+                this["UserPrompt"] = value;
+            }
+        }
     }
 }

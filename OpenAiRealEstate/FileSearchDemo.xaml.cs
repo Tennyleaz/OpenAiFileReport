@@ -34,6 +34,8 @@ namespace OpenAiFileReport
         public FileSearchDemo()
         {
             InitializeComponent();
+            WindowState = WindowState.Maximized;
+            IsEnabled = false;
             if (string.IsNullOrEmpty(Properties.Settings.Default.UserId) || Properties.Settings.Default.UserId == Guid.Empty.ToString())
             {
                 Properties.Settings.Default.UserId = Guid.NewGuid().ToString();
@@ -55,8 +57,7 @@ namespace OpenAiFileReport
             catch (Exception ex)
             {
                 MessageBox.Show(this, "Faild to read keys from txt!\n" + ex.Message);
-                Loaded -= FileSearchDemo_OnLoaded;
-                IsEnabled = false;
+                Loaded -= FileSearchDemo_OnLoaded;                
             }            
         }
 
@@ -66,6 +67,12 @@ namespace OpenAiFileReport
             LoadFileList();
             inputFileListBox.ItemsSource = InputFiles;
             tbSystemPrompt.Text = "You are an expert assistant that helps users summarize and interpret retrieved text from document searches.";
+
+            // load settings
+            if (!string.IsNullOrWhiteSpace(Properties.Settings.Default.SystemPrompt))
+                tbSystemPrompt.Text = Properties.Settings.Default.SystemPrompt;
+            if (!string.IsNullOrWhiteSpace(Properties.Settings.Default.UserPrompt))
+                tbUserPrompt.Text = Properties.Settings.Default.UserPrompt;
 
             // create index if not exists
             IndexList indexes;
@@ -131,6 +138,7 @@ namespace OpenAiFileReport
                     tbLogs.Text += "\nVectors: 0";
                 }
             }
+            IsEnabled = true;
         }
 
         private async void BtnAddFile_OnClick(object sender, RoutedEventArgs e)
@@ -182,13 +190,13 @@ namespace OpenAiFileReport
             {
                 tbLogs.Text = "Reading PDF file...";
                 PDFParser parser = new PDFParser();
-                data = parser.ExtractText(fileInfo.FullName);
+                data = parser.ExtractText(fileInfo);
             }
             else if (fileInfo.Extension == ".txt")
             {
                 tbLogs.Text = "Reading TXT file...";
                 TxtParser parser = new TxtParser();
-                data = parser.ExtractText(fileInfo.FullName);
+                data = parser.ExtractText(fileInfo);
             }
             else
             {
@@ -197,10 +205,20 @@ namespace OpenAiFileReport
             }
 
             tbLogs.Text = "Generating embeddings using GPT...";
-            List<float[]> embeddings = await GetImbeddings(data);
-            
+            List<float[]> embeddings;
+            try
+            {
+                embeddings = await GetImbeddings(data);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Create Embedding error:" + ex.Message);
+                tbLogs.Text = ex.ToString();
+                return null;
+            }
+
             // ensure count is same
-            if (embeddings.Count != data.Count)
+            if (embeddings == null || embeddings.Count != data.Count)
             {
                 MessageBox.Show("Error in embeddings count!");
                 return null;
@@ -265,6 +283,11 @@ namespace OpenAiFileReport
         private void FileSearchDemo_OnClosing(object sender, System.ComponentModel.CancelEventArgs e)
         {
             SaveFileList();
+            if (!string.IsNullOrWhiteSpace(tbSystemPrompt.Text))
+                Properties.Settings.Default.SystemPrompt = tbSystemPrompt.Text;
+            if (!string.IsNullOrWhiteSpace(tbUserPrompt.Text))
+                Properties.Settings.Default.UserPrompt = tbUserPrompt.Text;
+            Properties.Settings.Default.Save();
         }
 
         private void SaveFileList()
@@ -286,8 +309,11 @@ namespace OpenAiFileReport
 
         private async void BtnAsk_OnClick(object sender, RoutedEventArgs e)
         {
-            if (string.IsNullOrEmpty(tbSystemPrompt.Text))
+            if (string.IsNullOrEmpty(tbSystemPrompt.Text) || string.IsNullOrEmpty(tbUserPrompt.Text))
+            {
+                MessageBox.Show("Prompts are empty!");
                 return;
+            }
             IsEnabled = false;
             try
             {
