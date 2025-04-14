@@ -19,7 +19,7 @@ namespace OpenAiFileReport
     public partial class FileSearchDemo : Window
     {
         private readonly string _pinecodeApiKey, _openAiKey;
-        private readonly Guid userId;
+        //private readonly Guid userId;
         private const string indexName = "rag-demo";
         private readonly OpenAIClient openAiClient;
         private readonly PineconeClient pineconeClient;
@@ -156,30 +156,27 @@ namespace OpenAiFileReport
                 // copy to temp folder
                 File.Copy(fileInfo.FullName, Path.Combine(tempFolder, fileInfo.Name), true);
 
-                // add to list
-                InputFileModel newFile = new InputFileModel()
-                {
-                    FullPath = fileInfo.FullName,
-                    FileType = fileInfo.Extension,
-                    FileName = fileInfo.Name,
-                };
-                //if (fileInfo.Extension == ".txt")
-                //{
-                //    newFile.Content = File.ReadAllText(fileInfo.FullName).Trim();
-                //    newFile.IsProcessed = true;
-                //    //newFile.IsSelected = true;
-                //}
-                InputFiles.Add(newFile);
-
                 // upload to pinecone for bigger files
-                //if (fileInfo.Extension == ".pdf")
+                IsEnabled = false;
+                string documentId = await ReadDocument(fileInfo);
+                if (documentId == null)
                 {
-                    IsEnabled = false;
-                    string documentId = await ReadDocument(fileInfo);
+                    MessageBox.Show("Failed to add document!");
+                }
+                else
+                {
+                    // add to list
+                    InputFileModel newFile = new InputFileModel()
+                    {
+                        FullPath = fileInfo.FullName,
+                        FileType = fileInfo.Extension,
+                        FileName = fileInfo.Name,
+                    };
                     newFile.PineconeId = documentId;
                     newFile.IsProcessed = true;
-                    IsEnabled = true;
+                    InputFiles.Add(newFile);
                 }
+                IsEnabled = true;
             }
         }
 
@@ -344,6 +341,35 @@ namespace OpenAiFileReport
             IsEnabled = true;
         }
 
+        private Metadata CreateFileFilter()
+        {
+            // see:
+            // https://docs.pinecone.io/guides/data/understanding-metadata
+            // $in Matches vectors with metadata values that are in a specified array.
+            // Example: {"genre": {"$in": ["comedy", "documentary"]}}
+            List<string> selectedFileNames = InputFiles.Where(x => x.IsSelected).Select(x => x.FileName).ToList();
+            if (selectedFileNames.Any())
+            {
+                return new Metadata
+                {
+                    ["fileName"] = new Metadata
+                    {
+                        ["$in"] = selectedFileNames
+                    }
+                };
+            }
+            return null;
+        }
+
+        private uint DetermineTopK()
+        {
+            int selected = InputFiles.Count(x => x.IsSelected);
+            if (selected <= 2)
+                return 3;
+            else
+                return (uint)(selected + 1);
+        }
+
         private async Task<string> QueryEmbeddings(string query)
         {
             tbLogs.Text = "Generating embeddings using GPT...";
@@ -354,9 +380,10 @@ namespace OpenAiFileReport
             QueryRequest queryRequest = new QueryRequest
             {
                 Vector = queryEmbeddings,
-                TopK = 3,
+                TopK = DetermineTopK(),
                 Namespace = NAMESPACE,
-                IncludeMetadata = true
+                IncludeMetadata = true,
+                Filter = CreateFileFilter()
             };
             QueryResponse queryResponse = await indexClient.QueryAsync(queryRequest);
             if (queryResponse.Matches == null || !queryResponse.Matches.Any())
@@ -384,6 +411,8 @@ namespace OpenAiFileReport
 
         private async Task DeleteSelectedIds(string idPrefix)
         {
+            if (string.IsNullOrEmpty(idPrefix))
+                return;
             var listResponse = await indexClient.ListAsync(new ListRequest
             {
                 Prefix = idPrefix,
