@@ -203,7 +203,7 @@ namespace OpenAiFileReport
                 MessageBox.Show("Does not supoort this file: " + fileInfo.Extension);
                 return null;
             }
-            string name = "File-" + Guid.NewGuid().ToString();
+            string documentId = "File-" + Guid.NewGuid().ToString();
             tbLogs.Text = "Generating embeddings using GPT...";
             List<float[]> embeddings;
             try
@@ -227,7 +227,7 @@ namespace OpenAiFileReport
             tbLogs.Text = "Generating summary using GPT...";
             try
             {
-                await SaveSummary(documentText, fileInfo.Name, name);
+                await SaveSummary(documentText, fileInfo.Name, documentId);
             }
             catch (Exception ex)
             {
@@ -239,9 +239,9 @@ namespace OpenAiFileReport
             tbLogs.Text = "Upload embeddings to pinecone...";
             try
             {
-                await StoreEmbeddings(name, data, embeddings, fileInfo.Name);
+                await StoreEmbeddings(documentId, data, embeddings, fileInfo.Name);
                 tbLogs.Text = "OK.";
-                return name;
+                return documentId;
             }
             catch (Exception ex)
             {
@@ -473,13 +473,24 @@ namespace OpenAiFileReport
             tbOutput.Text = "";
             foreach (var match in queryResponse.Matches)
             {
+                if (match.Metadata == null)
+                    continue;
+
                 // print the text and score
-                string text = match.Metadata?["text"].ToString() ?? "";
+                string text = match.Metadata["text"].ToString() ?? "";
                 text = System.Text.RegularExpressions.Regex.Unescape(text);
-                string page = match.Metadata?["pageNumber"].ToString() ?? "";
-                string filename = match.Metadata?["fileName"].ToString() ?? "";
+                
+                string filename = match.Metadata["fileName"].ToString() ?? "";
                 filename = System.Text.RegularExpressions.Regex.Unescape(filename);
-                string msg = $"##score:{match.Score}\n##filename:{filename}\n##page:{page}\n##text:{text}\n";
+                string msg = $"##score:{match.Score}\n##filename:{filename}\n";
+                
+                if (match.Metadata.TryGetValue("pageNumber", out var value))
+                {
+                    string page = value.ToString();
+                    msg += $"##page:{page}\n";
+                }
+
+                msg += $"##text:{text}\n";
                 tbOutput.Text += msg;
             }
 
