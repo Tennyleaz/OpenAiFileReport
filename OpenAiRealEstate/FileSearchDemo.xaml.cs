@@ -441,10 +441,10 @@ namespace OpenAiFileReport
         {
             int selected = InputFiles.Count(x => x.IsSelected);
             if (selected <= 2)
-                return 3;
-            if (selected >= 6)
-                return 6;
-            return (uint)(selected + 1);
+                return 5;
+            if (selected >= 20)
+                return 20;
+            return (uint)(selected + 4);
         }
 
         private async Task<string> QueryEmbeddings(string query)
@@ -471,16 +471,17 @@ namespace OpenAiFileReport
 
             tbLogs.Text += "\nGet matches: " + queryResponse.Matches.Count();
             tbOutput.Text = "";
+            List<string> queryText = new List<string>();
             foreach (var match in queryResponse.Matches)
             {
                 if (match.Metadata == null)
                     continue;
 
                 // print the text and score
-                string text = match.Metadata["text"].ToString() ?? "";
+                string text = match.Metadata["text"].ToString();
                 text = System.Text.RegularExpressions.Regex.Unescape(text);
                 
-                string filename = match.Metadata["fileName"].ToString() ?? "";
+                string filename = match.Metadata["fileName"].ToString();
                 filename = System.Text.RegularExpressions.Regex.Unescape(filename);
                 string msg = $"##score:{match.Score}\n##filename:{filename}\n";
                 
@@ -492,7 +493,12 @@ namespace OpenAiFileReport
 
                 msg += $"##text:{text}\n";
                 tbOutput.Text += msg;
+                queryText.Add(msg);
             }
+
+            // show temp result 
+            QueryResultWindow queryResultWindow = new QueryResultWindow(queryText);
+            queryResultWindow.Show();
 
             return tbOutput.Text;
         }

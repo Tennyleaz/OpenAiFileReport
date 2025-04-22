@@ -4,6 +4,7 @@ using Microsoft.Win32;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
+using System.Net.Http;
 using System.Reflection;
 using System.Text;
 using System.Windows;
@@ -47,7 +48,13 @@ public partial class MainWindow : Window
             _openAiKey = File.ReadAllText("openai_key.txt").Trim();
             _assemblyAiKey = File.ReadAllText("assembly_key.txt").Trim();
             assemblyAiClient = new AssemblyAIClient(_assemblyAiKey);
-            openAiClient = new OpenAIClient(new OpenAIAuthentication(_openAiKey));
+
+            // custom http client with longer timeout
+            HttpClient httpClient = new HttpClient
+            {
+                Timeout = TimeSpan.FromMinutes(10)
+            };
+            openAiClient = new OpenAIClient(new OpenAIAuthentication(_openAiKey), null, httpClient);
         }
         catch (Exception ex)
         {
@@ -126,6 +133,7 @@ public partial class MainWindow : Window
             SpeechModel = SpeechModel.Best,
             SpeakerLabels = true,
             FormatText = true,
+            //Punctuate = true,
             //AutoChapters = chkAutoChapter.IsChecked,
             //Summarization = chkSummary.IsChecked
         };
@@ -140,11 +148,15 @@ public partial class MainWindow : Window
         cts = new CancellationTokenSource();
         try
         {
-            var transcript = await assemblyAiClient.Transcripts.TranscribeAsync(audioFileInfo, tp, null, cts.Token);
+            RequestOptions options = new RequestOptions
+            {
+                Timeout = TimeSpan.FromMinutes(10),
+            };
+            var transcript = await assemblyAiClient.Transcripts.TranscribeAsync(audioFileInfo, tp, options, cts.Token);
 
             // checks if transcript.Status == TranscriptStatus.Completed, throws an exception if not
             transcript.EnsureStatusCompleted();
-            ShowResult(transcript);
+            await ShowResult(transcript);
             // delete it on server
             //transcript = await client.Transcripts.DeleteAsync(transcript.Id);
         }
@@ -157,7 +169,7 @@ public partial class MainWindow : Window
         progress.Visibility = Visibility.Collapsed;
     }
 
-    private void ShowResult(Transcript transcript)
+    private async Task ShowResult(Transcript transcript)
     {
         if (transcript.Utterances != null && transcript.Utterances.Any())
         {
@@ -185,6 +197,24 @@ public partial class MainWindow : Window
                 }
             }
             tbConversationText.Text += transcript.Text;
+        }
+
+        // use chat completion to add missing Chinese punctuation marks
+        if (Locale == "Zh" || Locale == "Ja")
+        {
+            string systemPrompt = "Format the given Chinese/Japanese text. Add missing Chinese/Japanese punctuation marks, and remove redundant whitespaces. Do not change the content if possible.";
+            string userMessage = tbConversationText.Text.Trim();
+            ChatRequest chatRequest = new ChatRequest(
+                model: "gpt-4o-mini",
+                messages: new List<Message>()
+                {
+                    new Message(Role.System, systemPrompt),
+                    new Message(Role.User, userMessage)
+                }
+            );
+            ChatResponse chatResponse = await openAiClient.ChatEndpoint.GetCompletionAsync(chatRequest, cts.Token);
+            string message = chatResponse.FirstChoice.Message;
+            tbConversationText.Text = message;
         }
 
         CheckReportReady();
