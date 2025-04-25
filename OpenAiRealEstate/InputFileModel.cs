@@ -124,6 +124,8 @@ internal class InputFileModel : INotifyPropertyChanged
 
     public string PineconeId { get; set; }
 
+    public DateTime LastModified { get; set; }
+
     protected virtual void OnPropertyChanged(string propertyName)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));

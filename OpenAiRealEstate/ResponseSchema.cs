@@ -12,4 +12,10 @@ namespace OpenAiFileReport
         public string filled_template { get; set; }
         public string error { get; set; }
     }
+
+    internal class ReformatSchema
+    {
+        public string reformatted_query { get; set; }
+        public string[] filename_filter { get; set; }
+    }
 }

@@ -1,0 +1,19 @@
+{
+  "type": "object",
+  "properties": {
+    "reformatted_query": {
+      "type": "string"
+    },
+    "filename_filter": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "reformatted_query",
+    "filename_filter"
+  ],
+  "additionalProperties": false
+}

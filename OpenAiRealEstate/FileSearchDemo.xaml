@@ -52,6 +52,13 @@
             <TextBlock DockPanel.Dock="Top" Margin="0">System Prompt:</TextBlock>
             <TextBox DockPanel.Dock="Top" Name="tbSystemPrompt" Margin="0,0,0,0" Height="150" TextWrapping="Wrap"
                      AcceptsReturn="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"/>
+            <Grid DockPanel.Dock="Top" Margin="0,10,0,10">
+                <TextBlock>Model:</TextBlock>
+                <ComboBox Name="cbModel" Margin="60,0,0,0">
+                    <ComboBoxItem>gpt-4o</ComboBoxItem>
+                    <ComboBoxItem IsSelected="True">gpt-4o-mini</ComboBoxItem>
+                </ComboBox>
+            </Grid>
             <Button Name="btnAsk" DockPanel.Dock="Top" Click="BtnAsk_OnClick" HorizontalAlignment="Right" Width="100" Height="30">Go</Button>
         </DockPanel>
 

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -389,13 +390,15 @@ namespace OpenAiFileReport
                 //    true);
                 //chatTools.Add(function);
 
-                string retrievedText = await QueryEmbeddings(tbUserPrompt.Text);
+                tbLogs.Text = "Reformat query...";
+                ReformatSchema reformatted = await ReFormatQuery(tbUserPrompt.Text);
+                string retrievedText = await QueryEmbeddings(reformatted);
                 if (!string.IsNullOrEmpty(retrievedText))
                 {
                     tbLogs.Text = "Asking GPT...";
-                    string userPrompt = $"User query: {tbUserPrompt.Text}\n\nMatched text from vector store:\n{retrievedText}\n\nPlease provide a concise, well-structured response.";
+                    string userPrompt = $"User query: {reformatted.reformatted_query}\n\nMatched text from vector store:\n{retrievedText}\n\nPlease provide a concise, well-structured response.";
                     ChatRequest chatRequest = new ChatRequest(
-                        model: "gpt-4o-mini",
+                        model: Model,
                         messages: new List<Message>()
                         {
                         new Message(Role.System, tbSystemPrompt.Text),
@@ -417,7 +420,7 @@ namespace OpenAiFileReport
             IsEnabled = true;
         }
 
-        private Metadata CreateFileFilter()
+        private Metadata CreateFileFilter(string[] queryFilter)
         {
             // see:
             // https://docs.pinecone.io/guides/data/understanding-metadata
@@ -426,13 +429,26 @@ namespace OpenAiFileReport
             List<string> selectedFileNames = InputFiles.Where(x => x.IsSelected).Select(x => x.FileName).ToList();
             if (selectedFileNames.Count > 0)
             {
-                return new Metadata
+                // filter by query input
+                if (queryFilter != null && queryFilter.Length > 0)
                 {
-                    ["fileName"] = new Metadata
+                    for (int i = selectedFileNames.Count - 1; i >= 0; i--)
                     {
-                        ["$in"] = selectedFileNames
+                        if (!queryFilter.Contains(selectedFileNames[i]))
+                            selectedFileNames.RemoveAt(i);
                     }
-                };
+                }
+
+                if (selectedFileNames.Count > 0)
+                {
+                    return new Metadata
+                    {
+                        ["fileName"] = new Metadata
+                        {
+                            ["$in"] = selectedFileNames
+                        }
+                    };
+                }
             }
             return null;
         }
@@ -442,15 +458,49 @@ namespace OpenAiFileReport
             int selected = InputFiles.Count(x => x.IsSelected);
             if (selected <= 2)
                 return 5;
-            if (selected >= 20)
-                return 20;
+            if (selected >= 10)
+                return 15;
             return (uint)(selected + 4);
         }
 
-        private async Task<string> QueryEmbeddings(string query)
+        private string GenerateMetadata()
         {
-            tbLogs.Text = "Generating embeddings using GPT...";
-            EmbeddingsResponse embeddingsResponse = await openAiClient.EmbeddingsEndpoint.CreateEmbeddingAsync(query, EMBEDDING_MODEL);
+            IEnumerable<InputFileModel> selected = InputFiles.Where(x => x.IsSelected);
+            if (!selected.Any())
+                selected = InputFiles;
+            string metadata = "";
+            foreach (InputFileModel file in selected)
+            {
+                metadata += $" - FileName:{file.FileName}\tLastModified:{file.LastModified}\n";
+            }
+            return metadata;
+        }
+
+        private async Task<ReformatSchema> ReFormatQuery(string query)
+        {
+            string systemPrompt = await File.ReadAllTextAsync("Reformat System Prompt.txt");
+            systemPrompt = systemPrompt.Trim();
+            string userPrompt = $"Metadata: {GenerateMetadata()}\nUser prompt: {query.Trim()}";
+            string schema = await File.ReadAllTextAsync("reformat_schema.json");
+            ChatRequest chatRequest = new ChatRequest(
+                model: "gpt-4o-mini",
+                messages: new List<Message>()
+                {
+                    new Message(Role.System, systemPrompt),
+                    new Message(Role.User, userPrompt)
+                },
+                responseFormat: ChatResponseFormat.JsonSchema,
+                jsonSchema: new JsonSchema("reformat_schema", schema)
+            );
+            ChatResponse chatResponse = await openAiClient.ChatEndpoint.GetCompletionAsync(chatRequest);
+            string jsonResult = chatResponse.Choices.First().ToString();
+            return JsonSerializer.Deserialize<ReformatSchema>(jsonResult);
+        }
+
+        private async Task<string> QueryEmbeddings(ReformatSchema reformatted)
+        {
+            tbLogs.Text += "\nGenerating embeddings using GPT...";
+            EmbeddingsResponse embeddingsResponse = await openAiClient.EmbeddingsEndpoint.CreateEmbeddingAsync(reformatted.reformatted_query, EMBEDDING_MODEL);
             float[] queryEmbeddings = embeddingsResponse.Data.First().Embedding.Select(e => (float)e).ToArray();
 
             tbLogs.Text += "\nQuerying pinecone...";
@@ -460,7 +510,7 @@ namespace OpenAiFileReport
                 TopK = DetermineTopK(),
                 Namespace = NAMESPACE,
                 IncludeMetadata = true,
-                Filter = CreateFileFilter()
+                Filter = CreateFileFilter(reformatted.filename_filter)
             };
             QueryResponse queryResponse = await indexClient.QueryAsync(queryRequest);
             if (queryResponse.Matches == null || !queryResponse.Matches.Any())
@@ -497,7 +547,7 @@ namespace OpenAiFileReport
             }
 
             // show temp result 
-            QueryResultWindow queryResultWindow = new QueryResultWindow(queryText);
+            QueryResultWindow queryResultWindow = new QueryResultWindow(reformatted.reformatted_query, queryText);
             queryResultWindow.Show();
 
             return tbOutput.Text;
@@ -554,6 +604,16 @@ namespace OpenAiFileReport
                     }
                     IsEnabled = true;
                 }
+            }
+        }
+
+        private string Model
+        {
+            get
+            {
+                if (cbModel.SelectedIndex == 1)
+                    return "gpt-4o-mini";
+                return "gpt-4o";
             }
         }
     }
