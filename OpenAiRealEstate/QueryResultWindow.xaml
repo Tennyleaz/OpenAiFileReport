@@ -9,9 +9,9 @@
     <Grid>
         <ScrollViewer Name="scroller" Margin="10" VerticalScrollBarVisibility="Visible" HorizontalScrollBarVisibility="Disabled">
             <StackPanel Orientation="Vertical" Name="panel">
-                <GroupBox Header="Reformatted Query" VerticalAlignment="Top">
+                <!--<GroupBox Header="Reformatted Query" VerticalAlignment="Top">
                     <TextBlock Name="queryBox" TextWrapping="Wrap" Margin="2"></TextBlock>
-                </GroupBox>
+                </GroupBox>-->
             </StackPanel>
         </ScrollViewer>
     </Grid>

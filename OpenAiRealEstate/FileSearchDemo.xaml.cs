@@ -31,6 +31,7 @@ namespace OpenAiFileReport
         private const string EMBEDDING_MODEL = "text-embedding-ada-002";
         private const int DIMENTION = 1536;
         private readonly string NAMESPACE;
+        private string retrievedText;
 
         public FileSearchDemo()
         {
@@ -67,13 +68,39 @@ namespace OpenAiFileReport
             lbYourName.Content = "You: " + NAMESPACE;
             LoadFileList();
             inputFileListBox.ItemsSource = InputFiles;
-            tbSystemPrompt.Text = "You are an expert assistant that helps users summarize and interpret retrieved text from document searches.";
-
+            
             // load settings
-            if (!string.IsNullOrWhiteSpace(Properties.Settings.Default.SystemPrompt))
-                tbSystemPrompt.Text = Properties.Settings.Default.SystemPrompt;
+            if (!string.IsNullOrWhiteSpace(Properties.Settings.Default.SystemPromptVector))
+            {
+                tbSystemPromptVector.Text = Properties.Settings.Default.SystemPromptVector;
+            }
+            else
+            {
+                string systemPrompt = await File.ReadAllTextAsync("Reformat System Prompt.txt");
+                tbSystemPromptVector.Text = systemPrompt.Trim();
+            }
+            if (!string.IsNullOrWhiteSpace(Properties.Settings.Default.SystemPromptSummarize))
+            {
+                tbSystemPromptSum.Text = Properties.Settings.Default.SystemPromptSummarize;
+            }
+            else
+            {
+                tbSystemPromptSum.Text = "You are an expert assistant that helps users summarize and interpret retrieved text from document searches. " +
+                                         "Site which file/segment if possible.";
+            }
+            if (!string.IsNullOrWhiteSpace(Properties.Settings.Default.SystemPromptFormat))
+            {
+                tbSystemPromptFormat.Text = Properties.Settings.Default.SystemPromptFormat;
+            }
+            else
+            {
+                tbSystemPromptFormat.Text = "You are an expert assistant that reformat short user prompt into proper user prompt with instructions. " +
+                                            "This user prompt will combine user's vector database search result with document chunks, then feed to GPT to generate a summary.";
+            }
             if (!string.IsNullOrWhiteSpace(Properties.Settings.Default.UserPrompt))
+            {
                 tbUserPrompt.Text = Properties.Settings.Default.UserPrompt;
+            }
 
             // create index if not exists
             IndexList indexes;
@@ -348,10 +375,12 @@ namespace OpenAiFileReport
         private void FileSearchDemo_OnClosing(object sender, System.ComponentModel.CancelEventArgs e)
         {
             SaveFileList();
-            if (!string.IsNullOrWhiteSpace(tbSystemPrompt.Text))
-                Properties.Settings.Default.SystemPrompt = tbSystemPrompt.Text;
+            if (!string.IsNullOrWhiteSpace(tbSystemPromptVector.Text))
+                Properties.Settings.Default.SystemPromptVector = tbSystemPromptVector.Text;
             if (!string.IsNullOrWhiteSpace(tbUserPrompt.Text))
                 Properties.Settings.Default.UserPrompt = tbUserPrompt.Text;
+            if (!string.IsNullOrWhiteSpace(tbSystemPromptSum.Text))
+                Properties.Settings.Default.SystemPromptSummarize = tbSystemPromptSum.Text;
             Properties.Settings.Default.Save();
         }
 
@@ -372,9 +401,74 @@ namespace OpenAiFileReport
             }
         }
 
-        private async void BtnAsk_OnClick(object sender, RoutedEventArgs e)
+        private async void BtnAskSummarize_OnClick(object sender, RoutedEventArgs e)
         {
-            if (string.IsNullOrEmpty(tbSystemPrompt.Text) || string.IsNullOrEmpty(tbUserPrompt.Text))
+            if (!string.IsNullOrEmpty(retrievedText) && !string.IsNullOrWhiteSpace(tbSummarizeUserPrompt.Text) && !string.IsNullOrWhiteSpace(tbSystemPromptSum.Text))
+            {
+                IsEnabled = false;
+                tbLogs.Text = "Asking GPT...";
+                string userPrompt = $"User query: {tbSummarizeUserPrompt.Text}\n\nMatched text from vector store:\n{retrievedText}.";
+                ChatRequest chatRequest = new ChatRequest(
+                    model: Model,
+                    messages: new List<Message>()
+                    {
+                        new Message(Role.System, tbSystemPromptSum.Text),
+                        new Message(Role.User, userPrompt)
+                    }
+                    //tools: chatTools
+                    //responseFormat: ChatResponseFormat.JsonSchema,
+                    //jsonSchema: new JsonSchema("report_schema", schema)
+                );
+                ChatResponse chatResponse = await openAiClient.ChatEndpoint.GetCompletionAsync(chatRequest);
+                tbOutput.Text = chatResponse.Choices.First().ToString();
+                tbLogs.Text += "OK.";
+                IsEnabled = true;
+            }
+            else
+            {
+                MessageBox.Show("retrievedText is null!");
+            }
+        }
+
+        private async void BtnSearchPinecone_OnClick(object sender, RoutedEventArgs e)
+        {
+            if (string.IsNullOrWhiteSpace(tbPineconeSearch.Text))
+            {
+                MessageBox.Show("Pinecone search query is empty!");
+                return;
+            }
+            IsEnabled = false;
+            try
+            {
+                retrievedText = null;
+                retrievedText = await QueryEmbeddings(tbPineconeSearch.Text);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Query error: " + ex);
+            }
+            IsEnabled = true;
+        }
+
+        private async void BtnFormatSummaryQuery_OnClick(object sender, RoutedEventArgs e)
+        {
+            IsEnabled = false;
+            try
+            {
+                tbSummarizeUserPrompt.Text = string.Empty;
+                tbLogs.Text = "Reformat user prompt...";
+                tbSummarizeUserPrompt.Text = await ReFormatQuery(tbUserPrompt.Text, tbSystemPromptVector.Text);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Format error: " + ex);
+            }
+            IsEnabled = true;
+        }
+
+        private async void BtnFormatVector_OnClick(object sender, RoutedEventArgs e)
+        {
+            if (string.IsNullOrEmpty(tbSystemPromptVector.Text) || string.IsNullOrEmpty(tbUserPrompt.Text))
             {
                 MessageBox.Show("Prompts are empty!");
                 return;
@@ -389,29 +483,10 @@ namespace OpenAiFileReport
                 //    "Get summary of a document by file name.",
                 //    true);
                 //chatTools.Add(function);
-
+                tbPineconeSearch.Text = string.Empty;
                 tbLogs.Text = "Reformat query...";
-                ReformatSchema reformatted = await ReFormatQuery(tbUserPrompt.Text);
-                string retrievedText = await QueryEmbeddings(reformatted);
-                if (!string.IsNullOrEmpty(retrievedText))
-                {
-                    tbLogs.Text = "Asking GPT...";
-                    string userPrompt = $"User query: {reformatted.reformatted_query}\n\nMatched text from vector store:\n{retrievedText}\n\nPlease provide a concise, well-structured response.";
-                    ChatRequest chatRequest = new ChatRequest(
-                        model: Model,
-                        messages: new List<Message>()
-                        {
-                        new Message(Role.System, tbSystemPrompt.Text),
-                        new Message(Role.User, userPrompt)
-                        }
-                        //tools: chatTools
-                        //responseFormat: ChatResponseFormat.JsonSchema,
-                        //jsonSchema: new JsonSchema("report_schema", schema)
-                    );
-                    ChatResponse chatResponse = await openAiClient.ChatEndpoint.GetCompletionAsync(chatRequest);
-                    tbOutput.Text = chatResponse.Choices.First().ToString();
-                    tbLogs.Text += "OK.";
-                }
+                string userPrompt = $"Metadata: {GenerateMetadata()}\nUser prompt: {tbUserPrompt.Text.Trim()}";
+                tbPineconeSearch.Text = await ReFormatQuery(userPrompt, tbSystemPromptVector.Text);
             }
             catch (Exception ex)
             {
@@ -420,7 +495,7 @@ namespace OpenAiFileReport
             IsEnabled = true;
         }
 
-        private Metadata CreateFileFilter(string[] queryFilter)
+        private Metadata CreateFileFilter()
         {
             // see:
             // https://docs.pinecone.io/guides/data/understanding-metadata
@@ -430,14 +505,14 @@ namespace OpenAiFileReport
             if (selectedFileNames.Count > 0)
             {
                 // filter by query input
-                if (queryFilter != null && queryFilter.Length > 0)
-                {
-                    for (int i = selectedFileNames.Count - 1; i >= 0; i--)
-                    {
-                        if (!queryFilter.Contains(selectedFileNames[i]))
-                            selectedFileNames.RemoveAt(i);
-                    }
-                }
+                //if (queryFilter != null && queryFilter.Length > 0)
+                //{
+                //    for (int i = selectedFileNames.Count - 1; i >= 0; i--)
+                //    {
+                //        if (!queryFilter.Contains(selectedFileNames[i]))
+                //            selectedFileNames.RemoveAt(i);
+                //    }
+                //}
 
                 if (selectedFileNames.Count > 0)
                 {
@@ -476,31 +551,30 @@ namespace OpenAiFileReport
             return metadata;
         }
 
-        private async Task<ReformatSchema> ReFormatQuery(string query)
+        private async Task<string> ReFormatQuery(string userPrompt, string systemPrompt)
         {
-            string systemPrompt = await File.ReadAllTextAsync("Reformat System Prompt.txt");
-            systemPrompt = systemPrompt.Trim();
-            string userPrompt = $"Metadata: {GenerateMetadata()}\nUser prompt: {query.Trim()}";
-            string schema = await File.ReadAllTextAsync("reformat_schema.json");
+            
+            //string schema = await File.ReadAllTextAsync("reformat_schema.json");
             ChatRequest chatRequest = new ChatRequest(
                 model: "gpt-4o-mini",
                 messages: new List<Message>()
                 {
                     new Message(Role.System, systemPrompt),
                     new Message(Role.User, userPrompt)
-                },
-                responseFormat: ChatResponseFormat.JsonSchema,
-                jsonSchema: new JsonSchema("reformat_schema", schema)
+                }
+                //responseFormat: ChatResponseFormat.JsonSchema,
+                //jsonSchema: new JsonSchema("reformat_schema", schema)
             );
             ChatResponse chatResponse = await openAiClient.ChatEndpoint.GetCompletionAsync(chatRequest);
             string jsonResult = chatResponse.Choices.First().ToString();
-            return JsonSerializer.Deserialize<ReformatSchema>(jsonResult);
+            //return JsonSerializer.Deserialize<ReformatSchema>(jsonResult);
+            return jsonResult;
         }
 
-        private async Task<string> QueryEmbeddings(ReformatSchema reformatted)
+        private async Task<string> QueryEmbeddings(string reformatted)
         {
             tbLogs.Text += "\nGenerating embeddings using GPT...";
-            EmbeddingsResponse embeddingsResponse = await openAiClient.EmbeddingsEndpoint.CreateEmbeddingAsync(reformatted.reformatted_query, EMBEDDING_MODEL);
+            EmbeddingsResponse embeddingsResponse = await openAiClient.EmbeddingsEndpoint.CreateEmbeddingAsync(reformatted, EMBEDDING_MODEL);
             float[] queryEmbeddings = embeddingsResponse.Data.First().Embedding.Select(e => (float)e).ToArray();
 
             tbLogs.Text += "\nQuerying pinecone...";
@@ -510,7 +584,7 @@ namespace OpenAiFileReport
                 TopK = DetermineTopK(),
                 Namespace = NAMESPACE,
                 IncludeMetadata = true,
-                Filter = CreateFileFilter(reformatted.filename_filter)
+                Filter = CreateFileFilter()
             };
             QueryResponse queryResponse = await indexClient.QueryAsync(queryRequest);
             if (queryResponse.Matches == null || !queryResponse.Matches.Any())
@@ -521,6 +595,7 @@ namespace OpenAiFileReport
 
             tbLogs.Text += "\nGet matches: " + queryResponse.Matches.Count();
             tbOutput.Text = "";
+            string queryResult = "";
             List<string> queryText = new List<string>();
             foreach (var match in queryResponse.Matches)
             {
@@ -542,15 +617,16 @@ namespace OpenAiFileReport
                 }
 
                 msg += $"##text:{text}\n";
-                tbOutput.Text += msg;
+                //tbOutput.Text += msg;
+                queryResult += msg;
                 queryText.Add(msg);
             }
 
             // show temp result 
-            QueryResultWindow queryResultWindow = new QueryResultWindow(reformatted.reformatted_query, queryText);
+            QueryResultWindow queryResultWindow = new QueryResultWindow(queryText);
             queryResultWindow.Show();
 
-            return tbOutput.Text;
+            return queryResult;
         }
 
         private async Task DeleteSelectedIds(string idPrefix)

@@ -38,12 +38,12 @@ namespace OpenAiFileReport.Properties {
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("")]
-        public string SystemPrompt {
+        public string SystemPromptVector {
             get {
-                return ((string)(this["SystemPrompt"]));
+                return ((string)(this["SystemPromptVector"]));
             }
             set {
-                this["SystemPrompt"] = value;
+                this["SystemPromptVector"] = value;
             }
         }
         
@@ -56,6 +56,30 @@ namespace OpenAiFileReport.Properties {
             }
             set {
                 this["UserPrompt"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string SystemPromptSummarize {
+            get {
+                return ((string)(this["SystemPromptSummarize"]));
+            }
+            set {
+                this["SystemPromptSummarize"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string SystemPromptFormat {
+            get {
+                return ((string)(this["SystemPromptFormat"]));
+            }
+            set {
+                this["SystemPromptFormat"] = value;
             }
         }
     }

@@ -7,17 +7,18 @@
         mc:Ignorable="d"
         Loaded="FileSearchDemo_OnLoaded"
         Closing="FileSearchDemo_OnClosing"
-        Title="RAG Demo with Pinecone and OpenAI" Height="450" Width="800" WindowStartupLocation="CenterScreen">
+        Title="RAG Demo with Pinecone and OpenAI" MinHeight="700" Height="700" MinWidth="900" Width="1000" WindowStartupLocation="CenterScreen">
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="1*" MaxWidth="210"/>
+            <ColumnDefinition Width="2*"/>
             <ColumnDefinition Width="2*"/>
             <ColumnDefinition Width="2*"/>
         </Grid.ColumnDefinitions>
         <Grid Grid.Column="0">
             <Label Name="lbYourName" Margin="10,10,0,0" MaxWidth="200" HorizontalAlignment="Left" VerticalAlignment="Top">You:</Label>
             <Label Name="lbYourFiles" Margin="10,35,0,0" HorizontalAlignment="Left" VerticalAlignment="Top">Your Files:</Label>
-            <ListBox Margin="10,60,10,90" Name="inputFileListBox" MaxWidth="200">
+            <ListBox Margin="10,60,10,140" Name="inputFileListBox" MaxWidth="200">
                 <ListBox.ItemTemplate>
                     <DataTemplate DataType="{x:Type local:InputFileModel}">
                         <Grid>
@@ -41,29 +42,47 @@
                     </Style>
                 </ListBox.ItemContainerStyle>
             </ListBox>
-            <Button Name="btnAddFile" Click="BtnAddFile_OnClick" VerticalAlignment="Bottom" Margin="10,0,10,50" Height="30" MaxWidth="200">Add File</Button>
-            <Button Name="btnDelete" Click="BtnDelete_OnClick" VerticalAlignment="Bottom" Margin="10,0,10,10" Height="30" MaxWidth="200">Delete Selected</Button>
-        </Grid>
-        
-        <DockPanel Grid.Column="1"  Margin="10,10,10,10" LastChildFill="False">
-            <TextBlock DockPanel.Dock="Top" Margin="0">Ask AI:</TextBlock>
-            <TextBox DockPanel.Dock="Top" Name="tbUserPrompt" Margin="0,0,0,4" Height="150" TextWrapping="Wrap"
-                     AcceptsReturn="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"/>
-            <TextBlock DockPanel.Dock="Top" Margin="0">System Prompt:</TextBlock>
-            <TextBox DockPanel.Dock="Top" Name="tbSystemPrompt" Margin="0,0,0,0" Height="150" TextWrapping="Wrap"
-                     AcceptsReturn="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"/>
-            <Grid DockPanel.Dock="Top" Margin="0,10,0,10">
-                <TextBlock>Model:</TextBlock>
-                <ComboBox Name="cbModel" Margin="60,0,0,0">
+            <Grid VerticalAlignment="Bottom" Margin="0,0,0,90">
+                <TextBlock Margin="10,0,0,0">Model:</TextBlock>
+                <ComboBox Name="cbModel" Margin="10,20,10,0">
                     <ComboBoxItem>gpt-4o</ComboBoxItem>
                     <ComboBoxItem IsSelected="True">gpt-4o-mini</ComboBoxItem>
                 </ComboBox>
             </Grid>
-            <Button Name="btnAsk" DockPanel.Dock="Top" Click="BtnAsk_OnClick" HorizontalAlignment="Right" Width="100" Height="30">Go</Button>
+            <Button Name="btnAddFile" Click="BtnAddFile_OnClick" VerticalAlignment="Bottom" Margin="10,0,10,50" Height="30" MaxWidth="200">Add File</Button>
+            <Button Name="btnDelete" Click="BtnDelete_OnClick" VerticalAlignment="Bottom" Margin="10,0,10,10" Height="30" MaxWidth="200">Delete Selected</Button>
+        </Grid>
+        
+        <DockPanel Grid.Column="1" Margin="10,10,10,10" LastChildFill="True">
+            <TextBlock DockPanel.Dock="Top" Margin="0">Ask AI (user propmt):</TextBlock>
+            <TextBox DockPanel.Dock="Top" Name="tbUserPrompt" Margin="0,0,0,4" Height="150" TextWrapping="Wrap"
+                     AcceptsReturn="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"/>
+            <TextBlock DockPanel.Dock="Top" Margin="0">System prompt to format vector search: (1)</TextBlock>
+            <TextBox DockPanel.Dock="Top" Name="tbSystemPromptVector" Margin="0,0,0,4" Height="150" TextWrapping="Wrap"
+                     AcceptsReturn="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"/>
+            <TextBlock DockPanel.Dock="Top" Margin="0">System prompt to format user prompt: (3)</TextBlock>
+            <TextBox DockPanel.Dock="Top" Name="tbSystemPromptFormat" Margin="0,0,0,4" Height="150" TextWrapping="Wrap"
+                     AcceptsReturn="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"/>
+            <TextBlock DockPanel.Dock="Top" Margin="0">System prompt to summarize: (4)</TextBlock>
+            <TextBox DockPanel.Dock="Top" Name="tbSystemPromptSum" Margin="0,0,0,4" TextWrapping="Wrap"
+                     AcceptsReturn="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"/>
         </DockPanel>
 
-        <DockPanel Grid.Column="2" Margin="0,10,10,10">
-            <TextBlock DockPanel.Dock="Top" Margin="0">Output:</TextBlock>
+        <DockPanel Grid.Column="2" Margin="0,10,10,10" LastChildFill="False">
+            <TextBlock DockPanel.Dock="Top" Margin="0">Vector search prompt: (1)</TextBlock>
+            <TextBox DockPanel.Dock="Top" Name="tbPineconeSearch" Margin="0,0,0,4" Height="150" TextWrapping="Wrap"
+                     AcceptsReturn="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"/>
+            <TextBlock DockPanel.Dock="Top" Margin="0">Reformatted user prompt: (3)</TextBlock>
+            <TextBox DockPanel.Dock="Top" Name="tbSummarizeUserPrompt" Margin="0,0,0,4" Height="150" TextWrapping="Wrap"
+                     AcceptsReturn="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"/>
+            <Button Name="btnAskVector" DockPanel.Dock="Top" Click="BtnFormatVector_OnClick" HorizontalAlignment="Center" MinWidth="210" Height="30" Margin="5">1. Generate Vector Search Prompt</Button>
+            <Button Name="btnSearchPinecone" DockPanel.Dock="Top" Click="BtnSearchPinecone_OnClick" HorizontalAlignment="Center" MinWidth="210" Height="30" Margin="0,5,0,5">2. Search Vector in Pinecone</Button>
+            <Button Name="btnFormatSummaryQuery" DockPanel.Dock="Top" Click="BtnFormatSummaryQuery_OnClick" HorizontalAlignment="Center" MinWidth="210" Height="30" Margin="5">3. Reformat User Prompt</Button>
+            <Button Name="btnAskSummarize" DockPanel.Dock="Top" Click="BtnAskSummarize_OnClick" HorizontalAlignment="Center" MinWidth="210" Height="30" Margin="5">4. Summarize Search Result</Button>
+        </DockPanel>
+
+        <DockPanel Grid.Column="3" Margin="0,10,10,10">
+            <TextBlock DockPanel.Dock="Top" Margin="0">Final output:</TextBlock>
             <GroupBox DockPanel.Dock="Bottom" Header="Logs" Margin="0" Height="100">
                 <TextBlock Name="tbLogs" Margin="2" TextWrapping="NoWrap"></TextBlock>
             </GroupBox>

@@ -5,10 +5,16 @@
     <Setting Name="UserId" Type="System.String" Scope="User">
       <Value Profile="(Default)" />
     </Setting>
-    <Setting Name="SystemPrompt" Type="System.String" Scope="User">
+    <Setting Name="SystemPromptVector" Type="System.String" Scope="User">
       <Value Profile="(Default)" />
     </Setting>
     <Setting Name="UserPrompt" Type="System.String" Scope="User">
+      <Value Profile="(Default)" />
+    </Setting>
+    <Setting Name="SystemPromptSummarize" Type="System.String" Scope="User">
+      <Value Profile="(Default)" />
+    </Setting>
+    <Setting Name="SystemPromptFormat" Type="System.String" Scope="User">
       <Value Profile="(Default)" />
     </Setting>
   </Settings>
