@@ -8,7 +8,7 @@
         mc:Ignorable="d"
         Loaded="MainWindow_OnLoaded"
         WindowStartupLocation="CenterScreen"
-        Title="OpenAI Conversation Report Demo" Height="450" Width="800">
+        Title="OpenAI Conversation Report Demo" Height="500" Width="800">
     <Window.Resources>
         <Style TargetType="GroupBox">
             <Setter Property="HeaderTemplate">
@@ -54,7 +54,11 @@
                     <Label Name="lbTemplateName" Content="Please select template file"></Label>
                 </StackPanel>
                 <Separator></Separator>
-                <!--<ComboBox Name="cbModelNames" Margin="10,10,10,0"></ComboBox>-->
+                <Label Margin="10,0,0,0">Model:</Label>
+                <ComboBox Name="cbModel" Margin="10,0,10,0" Height="28" VerticalContentAlignment="Center">
+                    <ComboBoxItem>gpt-4o</ComboBoxItem>
+                    <ComboBoxItem IsSelected="True">gpt-4o-mini</ComboBoxItem>
+                </ComboBox>
                 <Button Name="btnGenerateReport" IsEnabled="False" Click="BtnGenerateReport_OnClick" Height="32" Margin="10,10,10,0">Generate Report</Button>
 
                 <!--<Button Name="btnAddFile" Click="BtnAddFile_OnClick" Height="32" Margin="10">Add File</Button>

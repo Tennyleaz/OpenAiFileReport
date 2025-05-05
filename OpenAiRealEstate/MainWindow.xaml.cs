@@ -286,13 +286,24 @@ public partial class MainWindow : Window
         JsonNode schema = JsonNode.Parse(js);
 
         string systemPrompt = "Generate a structured report using the provided template. Fill in the placeholders with relevant content from the conversation record.";
+        if (!string.IsNullOrEmpty(Properties.Settings.Default.GenerateReportSystemPrompt))
+            systemPrompt = Properties.Settings.Default.GenerateReportSystemPrompt;
+
         GeneratePromptWin gpw = new GeneratePromptWin(systemPrompt);
         gpw.Owner = this;
         gpw.ShowDialog();
         systemPrompt = gpw.Prompt;
+        if (string.IsNullOrEmpty(systemPrompt))
+        {
+            MessageBox.Show("System prompt is empty!");
+            return;
+        }
+
+        Properties.Settings.Default.GenerateReportSystemPrompt = systemPrompt;
+        Properties.Settings.Default.Save();
 
         ChatRequest chatRequest = new ChatRequest(
-            model: "gpt-4o-mini",
+            model: Model,
             messages: new List<Message>()
             {
                 new Message(Role.System, systemPrompt),
@@ -370,6 +381,16 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             MessageBox.Show("Save failed: " + ex.Message);
+        }
+    }
+
+    private string Model
+    {
+        get
+        {
+            if (cbModel.SelectedIndex == 1)
+                return "gpt-4o-mini";
+            return "gpt-4o";
         }
     }
 }

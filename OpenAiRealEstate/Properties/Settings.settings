@@ -17,5 +17,8 @@
     <Setting Name="SystemPromptFormat" Type="System.String" Scope="User">
       <Value Profile="(Default)" />
     </Setting>
+    <Setting Name="GenerateReportSystemPrompt" Type="System.String" Scope="User">
+      <Value Profile="(Default)" />
+    </Setting>
   </Settings>
 </SettingsFile>

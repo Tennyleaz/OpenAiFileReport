@@ -82,5 +82,17 @@ namespace OpenAiFileReport.Properties {
                 this["SystemPromptFormat"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string GenerateReportSystemPrompt {
+            get {
+                return ((string)(this["GenerateReportSystemPrompt"]));
+            }
+            set {
+                this["GenerateReportSystemPrompt"] = value;
+            }
+        }
     }
 }
