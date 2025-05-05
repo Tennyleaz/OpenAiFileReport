@@ -32,6 +32,7 @@ namespace OpenAiFileReport
         private const int DIMENTION = 1536;
         private readonly string NAMESPACE;
         private string retrievedText;
+        private uint vectorCount;
 
         public FileSearchDemo()
         {
@@ -95,7 +96,7 @@ namespace OpenAiFileReport
             else
             {
                 tbSystemPromptFormat.Text = "You are an expert assistant that reformat short user prompt into proper user prompt with instructions. " +
-                                            "This user prompt will combine user's vector database search result with document chunks, then feed to GPT to generate a summary.";
+                                            "Your modified user prompt will combine user's vector database search result with document chunks, then feed to GPT later to generate a summary.";
             }
             if (!string.IsNullOrWhiteSpace(Properties.Settings.Default.UserPrompt))
             {
@@ -160,6 +161,7 @@ namespace OpenAiFileReport
                 if (r.Namespaces.TryGetValue(NAMESPACE, out NamespaceSummary ns))
                 {
                     tbLogs.Text += "\nVectors: " + ns.VectorCount;
+                    vectorCount = ns.VectorCount ?? 0;
                 }
                 else
                 {
@@ -210,6 +212,7 @@ namespace OpenAiFileReport
 
         private async Task<string> ReadDocument(FileInfo fileInfo)
         {
+            // read input file, and cut into small chunks
             List<string> data;
             string documentText;
             if (fileInfo.Extension == ".pdf")
@@ -231,6 +234,8 @@ namespace OpenAiFileReport
                 MessageBox.Show("Does not supoort this file: " + fileInfo.Extension);
                 return null;
             }
+
+            // generate imbeddings using openai embedding endpoint
             string documentId = "File-" + Guid.NewGuid().ToString();
             tbLogs.Text = "Generating embeddings using GPT...";
             List<float[]> embeddings;
@@ -334,6 +339,13 @@ namespace OpenAiFileReport
             return chatResponse.Choices.First().ToString();
         }
 
+        /// <summary>
+        /// Generate summary of input document, and save its embedding vector to pinecone.
+        /// </summary>
+        /// <param name="documentText"></param>
+        /// <param name="fileName"></param>
+        /// <param name="vectorid"></param>
+        /// <returns></returns>
         private async Task SaveSummary(string documentText, string fileName, string vectorid)
         {
             string summary = await GenerateSummary(documentText);
@@ -432,6 +444,11 @@ namespace OpenAiFileReport
 
         private async void BtnSearchPinecone_OnClick(object sender, RoutedEventArgs e)
         {
+            if (vectorCount == 0)
+            {
+                MessageBox.Show("No vectors in pinecone!");
+                return;
+            }
             if (string.IsNullOrWhiteSpace(tbPineconeSearch.Text))
             {
                 MessageBox.Show("Pinecone search query is empty!");
@@ -456,8 +473,8 @@ namespace OpenAiFileReport
             try
             {
                 tbSummarizeUserPrompt.Text = string.Empty;
-                tbLogs.Text = "Reformat user prompt...";
-                tbSummarizeUserPrompt.Text = await ReFormatQuery(tbUserPrompt.Text, tbSystemPromptVector.Text);
+                tbLogs.Text = "Reformat user prompt to summarize seach result...";
+                tbSummarizeUserPrompt.Text = await ReFormatQuery(tbUserPrompt.Text, tbSystemPromptFormat.Text);
             }
             catch (Exception ex)
             {
@@ -495,6 +512,10 @@ namespace OpenAiFileReport
             IsEnabled = true;
         }
 
+        /// <summary>
+        /// Create pinecone search filter if some files are checked.
+        /// </summary>
+        /// <returns></returns>
         private Metadata CreateFileFilter()
         {
             // see:
@@ -504,16 +525,6 @@ namespace OpenAiFileReport
             List<string> selectedFileNames = InputFiles.Where(x => x.IsSelected).Select(x => x.FileName).ToList();
             if (selectedFileNames.Count > 0)
             {
-                // filter by query input
-                //if (queryFilter != null && queryFilter.Length > 0)
-                //{
-                //    for (int i = selectedFileNames.Count - 1; i >= 0; i--)
-                //    {
-                //        if (!queryFilter.Contains(selectedFileNames[i]))
-                //            selectedFileNames.RemoveAt(i);
-                //    }
-                //}
-
                 if (selectedFileNames.Count > 0)
                 {
                     return new Metadata
@@ -538,6 +549,10 @@ namespace OpenAiFileReport
             return (uint)(selected + 4);
         }
 
+        /// <summary>
+        /// Print metadata (filename, last modified time) form selected.
+        /// </summary>
+        /// <returns></returns>
         private string GenerateMetadata()
         {
             IEnumerable<InputFileModel> selected = InputFiles.Where(x => x.IsSelected);
@@ -551,9 +566,14 @@ namespace OpenAiFileReport
             return metadata;
         }
 
+        /// <summary>
+        /// Call GPT to format short human prompt into proper prompt.
+        /// </summary>
+        /// <param name="userPrompt"></param>
+        /// <param name="systemPrompt"></param>
+        /// <returns></returns>
         private async Task<string> ReFormatQuery(string userPrompt, string systemPrompt)
         {
-            
             //string schema = await File.ReadAllTextAsync("reformat_schema.json");
             ChatRequest chatRequest = new ChatRequest(
                 model: "gpt-4o-mini",
@@ -570,7 +590,12 @@ namespace OpenAiFileReport
             //return JsonSerializer.Deserialize<ReformatSchema>(jsonResult);
             return jsonResult;
         }
-
+        
+        /// <summary>
+        /// Calcuate embedding vector from user prompt, and search similar vectors in Pinecone.
+        /// </summary>
+        /// <param name="reformatted"></param>
+        /// <returns>Returns metadata text chunks from pinecone.</returns>
         private async Task<string> QueryEmbeddings(string reformatted)
         {
             tbLogs.Text += "\nGenerating embeddings using GPT...";
@@ -622,7 +647,7 @@ namespace OpenAiFileReport
                 queryText.Add(msg);
             }
 
-            // show temp result 
+            // show temp result in another window
             QueryResultWindow queryResultWindow = new QueryResultWindow(queryText);
             queryResultWindow.Show();
 
