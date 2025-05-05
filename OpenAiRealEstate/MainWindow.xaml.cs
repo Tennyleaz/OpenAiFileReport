@@ -282,10 +282,18 @@ public partial class MainWindow : Window
         string conversationContent = tbConversationText.Text.Trim();
         string userMessage = $"### Conversation Record:\n{conversationContent}\n\n### User's Report Template:\n{templateContnet}";
 
+        // fill timestamp if there is one
+        if (audioFileInfo != null)
+        {
+            userMessage += $"\n###Audio filename:{audioFileInfo.Name}\n###Last modified:{audioFileInfo.LastWriteTime.ToString("yyyy-MM-dd")}";
+        }
+
         string js = @"{""type"":""object"",""properties"":{""success"":{""type"":""boolean""},""filled_template"":{""type"":""string""},""error"":{""type"":""string"",""nullable"":true}},""required"":[""success"",""filled_template"",""error""],""additionalProperties"":false}";
         JsonNode schema = JsonNode.Parse(js);
 
-        string systemPrompt = "Generate a structured report using the provided template. Fill in the placeholders with relevant content from the conversation record.";
+        string systemPrompt = "Generate a structured report using the provided template.\n" +
+                              "Fill in the placeholders with relevant content from the conversation record.\n" +
+                              "If there is a date field in template, try to extract date info from conversation record. Otherwise, try to use last modified time if given.";
         if (!string.IsNullOrEmpty(Properties.Settings.Default.GenerateReportSystemPrompt))
             systemPrompt = Properties.Settings.Default.GenerateReportSystemPrompt;
 

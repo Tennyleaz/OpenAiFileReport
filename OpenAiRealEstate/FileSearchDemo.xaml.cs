@@ -86,7 +86,7 @@ namespace OpenAiFileReport
             }
             else
             {
-                tbSystemPromptSum.Text = "You are an expert assistant that helps users summarize and interpret retrieved text from document searches. " +
+                tbSystemPromptSum.Text = "You are an expert assistant that helps users summarize and interpret retrieved text from document searches. \n" +
                                          "Site which file/segment if possible.";
             }
             if (!string.IsNullOrWhiteSpace(Properties.Settings.Default.SystemPromptFormat))
@@ -95,7 +95,7 @@ namespace OpenAiFileReport
             }
             else
             {
-                tbSystemPromptFormat.Text = "You are an expert assistant that reformat short user prompt into proper user prompt with instructions. " +
+                tbSystemPromptFormat.Text = "You are an expert assistant that reformat short user prompt into proper user prompt with instructions. \n" +
                                             "Your modified user prompt will combine user's vector database search result with document chunks, then feed to GPT later to generate a summary.";
             }
             if (!string.IsNullOrWhiteSpace(Properties.Settings.Default.UserPrompt))
