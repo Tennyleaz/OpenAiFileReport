@@ -21,11 +21,11 @@ namespace OpenAiFileReport
     /// </summary>
     public partial class QueryResultWindow : Window
     {
-        public QueryResultWindow(string query, List<string> queryText)
+        public QueryResultWindow(List<string> queryText)
         {
             InitializeComponent();
 
-            queryBox.Text = query;
+            //queryBox.Text = query;
 
             for (int i = 0; i < queryText.Count; i++)
             {

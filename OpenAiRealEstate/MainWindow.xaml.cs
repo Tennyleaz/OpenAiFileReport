@@ -15,7 +15,6 @@ using System.Text.Json.Serialization;
 using System.Text.Json;
 using System.Windows.Controls;
 using System.Windows.Threading;
-using MdXaml;
 
 namespace OpenAiFileReport;
 
@@ -25,7 +24,6 @@ namespace OpenAiFileReport;
 public partial class MainWindow : Window
 {
     private string _openAiKey = "", _assemblyAiKey = "";
-    internal ObservableCollection<InputFileModel> InputFiles = new ObservableCollection<InputFileModel>();
     private FileInfo audioFileInfo, templateFileInfo;
     private AssemblyAIClient assemblyAiClient;
     private OpenAIClient openAiClient;
@@ -41,7 +39,7 @@ public partial class MainWindow : Window
         textChangeTimer.Interval = TimeSpan.FromMilliseconds(600);
     }
 
-    private async void MainWindow_OnLoaded(object sender, RoutedEventArgs e)
+    private void MainWindow_OnLoaded(object sender, RoutedEventArgs e)
     {
         try
         {
@@ -61,46 +59,8 @@ public partial class MainWindow : Window
             MessageBox.Show(this, "Faild to read keys from txt!\n" + ex.Message);
         }
 
-        //inputFileListBox.ItemsSource = InputFiles;
-        //InputFiles.Add(new InputFileModel()
-        //{
-        //    FileName = "Test.txt",
-        //    IsSelected = false
-        //});
         cbLocale.ItemsSource = localesBest;
         cbLocale.SelectedIndex = 0;
-
-        //IReadOnlyList<OpenAI.Models.Model> models = await openAiClient.ModelsEndpoint.GetModelsAsync();
-        //cbModelNames.ItemsSource = models.Select(x => x.Id);
-    }
-
-    private void BtnAddFile_OnClick(object sender, RoutedEventArgs e)
-    {
-        OpenFileDialog dialog = new OpenFileDialog();
-        dialog.Filter = "Text Files (*.txt)|*.txt|Wave Files (*.wav)|*.wav";
-        dialog.InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-        dialog.Title = "Select your file:";
-        if (dialog.ShowDialog() != true)
-            return;
-
-        FileInfo fileInfo = new FileInfo(dialog.FileName);
-        if (fileInfo.Exists)
-        {
-            InputFileModel newFile = new InputFileModel()
-            {
-                FullPath = fileInfo.FullName,
-                FileType = fileInfo.Extension,
-                FileName = fileInfo.Name,
-            };
-            if (fileInfo.Extension == ".txt")
-            {
-                newFile.Content = File.ReadAllText(fileInfo.FullName).Trim();
-                newFile.IsProcessed = true;
-                newFile.IsSelected = true;
-            }
-
-            InputFiles.Add(newFile);
-        }
     }
 
     private void BtnAudioFile_OnClick(object sender, RoutedEventArgs e)
@@ -282,17 +242,36 @@ public partial class MainWindow : Window
         string conversationContent = tbConversationText.Text.Trim();
         string userMessage = $"### Conversation Record:\n{conversationContent}\n\n### User's Report Template:\n{templateContnet}";
 
+        // fill timestamp if there is one
+        if (audioFileInfo != null)
+        {
+            userMessage += $"\n###Audio filename:{audioFileInfo.Name}\n###Last modified:{audioFileInfo.LastWriteTime.ToString("yyyy-MM-dd")}";
+        }
+
         string js = @"{""type"":""object"",""properties"":{""success"":{""type"":""boolean""},""filled_template"":{""type"":""string""},""error"":{""type"":""string"",""nullable"":true}},""required"":[""success"",""filled_template"",""error""],""additionalProperties"":false}";
         JsonNode schema = JsonNode.Parse(js);
 
-        string systemPrompt = "Generate a structured report using the provided template. Fill in the placeholders with relevant content from the conversation record.";
+        string systemPrompt = "Generate a structured report using the provided template.\n" +
+                              "Fill in the placeholders with relevant content from the conversation record.\n" +
+                              "If there is a date field in template, try to extract date info from conversation record. Otherwise, try to use last modified time if given.";
+        if (!string.IsNullOrEmpty(Properties.Settings.Default.GenerateReportSystemPrompt))
+            systemPrompt = Properties.Settings.Default.GenerateReportSystemPrompt;
+
         GeneratePromptWin gpw = new GeneratePromptWin(systemPrompt);
         gpw.Owner = this;
         gpw.ShowDialog();
         systemPrompt = gpw.Prompt;
+        if (string.IsNullOrEmpty(systemPrompt))
+        {
+            MessageBox.Show("System prompt is empty!");
+            return;
+        }
+
+        Properties.Settings.Default.GenerateReportSystemPrompt = systemPrompt;
+        Properties.Settings.Default.Save();
 
         ChatRequest chatRequest = new ChatRequest(
-            model: "gpt-4o-mini",
+            model: Model,
             messages: new List<Message>()
             {
                 new Message(Role.System, systemPrompt),
@@ -370,6 +349,16 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             MessageBox.Show("Save failed: " + ex.Message);
+        }
+    }
+
+    private string Model
+    {
+        get
+        {
+            if (cbModel.SelectedIndex == 1)
+                return "gpt-4o-mini";
+            return "gpt-4o";
         }
     }
 }
