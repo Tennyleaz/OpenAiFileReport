@@ -15,7 +15,6 @@ using System.Text.Json.Serialization;
 using System.Text.Json;
 using System.Windows.Controls;
 using System.Windows.Threading;
-using MdXaml;
 
 namespace OpenAiFileReport;
 
@@ -25,7 +24,6 @@ namespace OpenAiFileReport;
 public partial class MainWindow : Window
 {
     private string _openAiKey = "", _assemblyAiKey = "";
-    internal ObservableCollection<InputFileModel> InputFiles = new ObservableCollection<InputFileModel>();
     private FileInfo audioFileInfo, templateFileInfo;
     private AssemblyAIClient assemblyAiClient;
     private OpenAIClient openAiClient;
@@ -41,7 +39,7 @@ public partial class MainWindow : Window
         textChangeTimer.Interval = TimeSpan.FromMilliseconds(600);
     }
 
-    private async void MainWindow_OnLoaded(object sender, RoutedEventArgs e)
+    private void MainWindow_OnLoaded(object sender, RoutedEventArgs e)
     {
         try
         {
@@ -61,46 +59,8 @@ public partial class MainWindow : Window
             MessageBox.Show(this, "Faild to read keys from txt!\n" + ex.Message);
         }
 
-        //inputFileListBox.ItemsSource = InputFiles;
-        //InputFiles.Add(new InputFileModel()
-        //{
-        //    FileName = "Test.txt",
-        //    IsSelected = false
-        //});
         cbLocale.ItemsSource = localesBest;
         cbLocale.SelectedIndex = 0;
-
-        //IReadOnlyList<OpenAI.Models.Model> models = await openAiClient.ModelsEndpoint.GetModelsAsync();
-        //cbModelNames.ItemsSource = models.Select(x => x.Id);
-    }
-
-    private void BtnAddFile_OnClick(object sender, RoutedEventArgs e)
-    {
-        OpenFileDialog dialog = new OpenFileDialog();
-        dialog.Filter = "Text Files (*.txt)|*.txt|Wave Files (*.wav)|*.wav";
-        dialog.InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-        dialog.Title = "Select your file:";
-        if (dialog.ShowDialog() != true)
-            return;
-
-        FileInfo fileInfo = new FileInfo(dialog.FileName);
-        if (fileInfo.Exists)
-        {
-            InputFileModel newFile = new InputFileModel()
-            {
-                FullPath = fileInfo.FullName,
-                FileType = fileInfo.Extension,
-                FileName = fileInfo.Name,
-            };
-            if (fileInfo.Extension == ".txt")
-            {
-                newFile.Content = File.ReadAllText(fileInfo.FullName).Trim();
-                newFile.IsProcessed = true;
-                newFile.IsSelected = true;
-            }
-
-            InputFiles.Add(newFile);
-        }
     }
 
     private void BtnAudioFile_OnClick(object sender, RoutedEventArgs e)
