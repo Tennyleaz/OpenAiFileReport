@@ -158,7 +158,7 @@ public partial class MainWindow : Window
             transcript.EnsureStatusCompleted();
             await ShowResult(transcript);
             // delete it on server
-            //transcript = await client.Transcripts.DeleteAsync(transcript.Id);
+            transcript = await assemblyAiClient.Transcripts.DeleteAsync(transcript.Id);
         }
         catch (Exception ex)
         {
