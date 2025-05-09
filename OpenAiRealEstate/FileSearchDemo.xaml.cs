@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Windows;
 using Microsoft.Win32;
 using OpenAI;
@@ -19,11 +20,12 @@ namespace OpenAiFileReport
     /// </summary>
     public partial class FileSearchDemo : Window
     {
-        private readonly string _pinecodeApiKey, _openAiKey;
+        private readonly string _pinecodeApiKey, _openAiKey, _googleSearchKey;
         //private readonly Guid userId;
         private const string indexName = "rag-demo";
         private readonly OpenAIClient openAiClient;
         private readonly PineconeClient pineconeClient;
+        private readonly GoogleCustomSearch googleCustomSearch;
         private readonly string tempFolder;  // %localappdata%/OpenAiTempFiles
         private IndexClient indexClient;
         private Pinecone.Index myIndex;
@@ -33,6 +35,7 @@ namespace OpenAiFileReport
         private readonly string NAMESPACE;
         private string retrievedText;
         private uint vectorCount;
+        private Tool googleSearchTool;
 
         public FileSearchDemo()
         {
@@ -51,9 +54,10 @@ namespace OpenAiFileReport
             {
                 _openAiKey = File.ReadAllText("openai_key.txt").Trim();
                 _pinecodeApiKey = File.ReadAllText("pinecone_key.txt").Trim();
+                _googleSearchKey = File.ReadAllText("google_search_key.txt").Trim();
                 openAiClient = new OpenAIClient(new OpenAIAuthentication(_openAiKey));
                 pineconeClient = new PineconeClient(_pinecodeApiKey);
-
+                googleCustomSearch = new GoogleCustomSearch(_googleSearchKey);
                 if (!Directory.Exists(tempFolder))
                     Directory.CreateDirectory(tempFolder);
             }
@@ -168,6 +172,11 @@ namespace OpenAiFileReport
                     tbLogs.Text += "\nVectors: 0";
                 }
             }
+
+            // register tool first
+            googleSearchTool = CreateSearchTool();
+            tbLogs.Text += "\nRegistered google search tool.";
+
             IsEnabled = true;
         }
 
@@ -386,6 +395,7 @@ namespace OpenAiFileReport
 
         private void FileSearchDemo_OnClosing(object sender, System.ComponentModel.CancelEventArgs e)
         {
+            Tool.TryUnregisterTool(googleSearchTool);
             SaveFileList();
             if (!string.IsNullOrWhiteSpace(tbSystemPromptVector.Text))
                 Properties.Settings.Default.SystemPromptVector = tbSystemPromptVector.Text;
@@ -420,18 +430,53 @@ namespace OpenAiFileReport
                 IsEnabled = false;
                 tbLogs.Text = "Asking GPT...";
                 string userPrompt = $"User query: {tbSummarizeUserPrompt.Text}\n\nMatched text from vector store:\n{retrievedText}.";
+
+                // create search tool
+                List<Tool> seachTools = new List<Tool> { googleSearchTool };
+
+                // create system/user prompt
+                List<Message> messages = new List<Message>
+                {
+                    new Message(Role.System, tbSystemPromptSum.Text),
+                    new Message(Role.User, userPrompt)
+                };
+
+                // call gpt
                 ChatRequest chatRequest = new ChatRequest(
                     model: Model,
-                    messages: new List<Message>()
-                    {
-                        new Message(Role.System, tbSystemPromptSum.Text),
-                        new Message(Role.User, userPrompt)
-                    }
-                    //tools: chatTools
+                    messages: messages,
+                    tools: seachTools,
+                    toolChoice: "auto",  // let model decide which tool to call (or not)
+                    parallelToolCalls: false  // ensure 0 or 1 function call only
                     //responseFormat: ChatResponseFormat.JsonSchema,
                     //jsonSchema: new JsonSchema("report_schema", schema)
                 );
                 ChatResponse chatResponse = await openAiClient.ChatEndpoint.GetCompletionAsync(chatRequest);
+                
+                // check if the response is a function call
+                if (chatResponse.FirstChoice.Message.ToolCalls?.Count > 0)
+                {
+                    tbLogs.Text = "Searching google...";
+                    // add the previous tool call message from model
+                    messages.Add(chatResponse.FirstChoice.Message);
+                    foreach (ToolCall toolCall in chatResponse.FirstChoice.Message.ToolCalls)
+                    {
+                        // call the tool
+                        string functionResult = await toolCall.InvokeFunctionAsync<string>();
+                        // add the tool call result
+                        messages.Add(new Message(toolCall, functionResult));
+                    }
+
+                    // call gpt again
+                    chatRequest = new ChatRequest(
+                        model: Model,
+                        messages: messages,
+                        tools: seachTools,
+                        toolChoice: "auto"
+                    );
+                    chatResponse = await openAiClient.ChatEndpoint.GetCompletionAsync(chatRequest);
+                }
+
                 tbOutput.Text = chatResponse.Choices.First().ToString();
                 tbLogs.Text += "OK.";
                 IsEnabled = true;
@@ -440,6 +485,35 @@ namespace OpenAiFileReport
             {
                 MessageBox.Show("retrievedText is null!");
             }
+        }
+
+        private Tool CreateSearchTool()
+        {
+            Function seachFunction = Function.FromFunc<string, string>(
+                "google-search-tool",
+                SearchGoogle,
+                "Search google from a query. Returns a list of JSON result.",
+                true);
+            Tool seachTool = new Tool(seachFunction);
+            if (!Tool.IsToolRegistered(seachTool))
+            {
+                bool registered = Tool.TryRegisterTool(seachTool);
+                if (!registered)
+                {
+                    MessageBox.Show("Cannot register tool!");
+                }
+            }
+            return seachTool;
+        }
+
+        private string SearchGoogle(string query)
+        {
+            List<GoogleSearchResult> results = googleCustomSearch.Search(query);
+            if (results == null || results.Count == 0)
+            {
+                return "Failed to search google!";
+            }
+            return JsonSerializer.Serialize(results);
         }
 
         private async void BtnSearchPinecone_OnClick(object sender, RoutedEventArgs e)
