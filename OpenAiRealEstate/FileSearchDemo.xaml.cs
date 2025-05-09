@@ -73,7 +73,9 @@ namespace OpenAiFileReport
             lbYourName.Content = "You: " + NAMESPACE;
             LoadFileList();
             inputFileListBox.ItemsSource = InputFiles;
-            
+            cbModel.ItemsSource = models;
+            cbModel.SelectedIndex = 0;
+
             // load settings
             if (!string.IsNullOrWhiteSpace(Properties.Settings.Default.SystemPromptVector))
             {
@@ -459,14 +461,20 @@ namespace OpenAiFileReport
                     tbLogs.Text = "Searching google...";
                     // add the previous tool call message from model
                     messages.Add(chatResponse.FirstChoice.Message);
+                    string functionResult = "";
                     foreach (ToolCall toolCall in chatResponse.FirstChoice.Message.ToolCalls)
                     {
                         // call the tool
-                        string functionResult = await toolCall.InvokeFunctionAsync<string>();
+                        functionResult = await toolCall.InvokeFunctionAsync<string>();
                         // add the tool call result
                         messages.Add(new Message(toolCall, functionResult));
                     }
 
+                    // show a search preview to user
+                    GoogleSearchWindow g = new GoogleSearchWindow(functionResult);
+                    g.Show();
+
+                    tbLogs.Text = $"Feed search result to {Model}...";
                     // call gpt again
                     chatRequest = new ChatRequest(
                         model: Model,
@@ -786,10 +794,15 @@ namespace OpenAiFileReport
         {
             get
             {
-                if (cbModel.SelectedIndex == 1)
-                    return "gpt-4o-mini";
-                return "gpt-4o";
+                return models[cbModel.SelectedIndex];
             }
         }
+
+        private readonly string[] models = [
+            "gpt-4o",
+            "gpt-4o-mini",
+            "o4-mini",
+            "gpt-4.1"
+        ];
     }
 }

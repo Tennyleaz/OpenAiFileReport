@@ -45,8 +45,6 @@
             <Grid VerticalAlignment="Bottom" Margin="0,0,0,90">
                 <TextBlock Margin="10,0,0,0">Model:</TextBlock>
                 <ComboBox Name="cbModel" Margin="10,20,10,0">
-                    <ComboBoxItem IsSelected="True">gpt-4o</ComboBoxItem>
-                    <ComboBoxItem>gpt-4o-mini</ComboBoxItem>
                 </ComboBox>
             </Grid>
             <Button Name="btnAddFile" Click="BtnAddFile_OnClick" VerticalAlignment="Bottom" Margin="10,0,10,50" Height="30" MaxWidth="200">Add File</Button>
