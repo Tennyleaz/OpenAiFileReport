@@ -24,6 +24,7 @@
     <PackageReference Include="PdfPig" Version="0.1.10" />
     <PackageReference Include="Pinecone.Client" Version="3.1.0" />
     <PackageReference Include="PortableSettingsProvider" Version="0.2.5" />
+    <PackageReference Include="Selenium.WebDriver" Version="4.32.0" />
   </ItemGroup>
 
   <ItemGroup>

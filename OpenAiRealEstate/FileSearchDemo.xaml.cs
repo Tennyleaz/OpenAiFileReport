@@ -35,7 +35,8 @@ namespace OpenAiFileReport
         private readonly string NAMESPACE;
         private string retrievedText;
         private uint vectorCount;
-        private Tool googleSearchTool;
+        private List<Tool> seachTools;
+        private Scrapper webScrapper;
 
         public FileSearchDemo()
         {
@@ -176,7 +177,7 @@ namespace OpenAiFileReport
             }
 
             // register tool first
-            googleSearchTool = CreateSearchTool();
+            seachTools = CreateSearchTool();
             tbLogs.Text += "\nRegistered google search tool.";
 
             IsEnabled = true;
@@ -397,7 +398,13 @@ namespace OpenAiFileReport
 
         private void FileSearchDemo_OnClosing(object sender, System.ComponentModel.CancelEventArgs e)
         {
-            Tool.TryUnregisterTool(googleSearchTool);
+            if (seachTools != null)
+            {
+                foreach (Tool t in seachTools)
+                {
+                    Tool.TryUnregisterTool(t);
+                }
+            }
             SaveFileList();
             if (!string.IsNullOrWhiteSpace(tbSystemPromptVector.Text))
                 Properties.Settings.Default.SystemPromptVector = tbSystemPromptVector.Text;
@@ -433,9 +440,6 @@ namespace OpenAiFileReport
                 tbLogs.Text = "Asking GPT...";
                 string userPrompt = $"User query: {tbSummarizeUserPrompt.Text}\n\nMatched text from vector store:\n{retrievedText}.";
 
-                // create search tool
-                List<Tool> seachTools = new List<Tool> { googleSearchTool };
-
                 // create system/user prompt
                 List<Message> messages = new List<Message>
                 {
@@ -449,7 +453,7 @@ namespace OpenAiFileReport
                     messages: messages,
                     tools: seachTools,
                     toolChoice: "auto",  // let model decide which tool to call (or not)
-                    parallelToolCalls: false  // ensure 0 or 1 function call only
+                    parallelToolCalls: true  // ensure 0 or 1 function call only
                     //responseFormat: ChatResponseFormat.JsonSchema,
                     //jsonSchema: new JsonSchema("report_schema", schema)
                 );
@@ -495,23 +499,41 @@ namespace OpenAiFileReport
             }
         }
 
-        private Tool CreateSearchTool()
+        private List<Tool> CreateSearchTool()
         {
             Function seachFunction = Function.FromFunc<string, string>(
                 "google-search-tool",
                 SearchGoogle,
                 "Search google from a query. Returns a list of JSON result.",
                 true);
-            Tool seachTool = new Tool(seachFunction);
-            if (!Tool.IsToolRegistered(seachTool))
+            Tool googleSearchTool = new Tool(seachFunction);
+            if (!Tool.IsToolRegistered(googleSearchTool))
             {
-                bool registered = Tool.TryRegisterTool(seachTool);
+                bool registered = Tool.TryRegisterTool(googleSearchTool);
                 if (!registered)
                 {
                     MessageBox.Show("Cannot register tool!");
                 }
             }
-            return seachTool;
+
+            Function getPageFunction = Function.FromFunc<string, string>(
+                "webpage-scrap-tool",
+                SearchGoogle,
+                "Go to a url, and scrap it's webpage HTML.",
+                true);
+            Tool getPageTool = new Tool(getPageFunction);
+            if (!Tool.IsToolRegistered(getPageTool))
+            {
+                bool registered = Tool.TryRegisterTool(getPageTool);
+                if (!registered)
+                {
+                    MessageBox.Show("Cannot register tool!");
+                }
+            }
+
+            // create search tool
+            List<Tool> seachTools = new List<Tool> { googleSearchTool, getPageTool };
+            return seachTools;
         }
 
         private string SearchGoogle(string query)
@@ -522,6 +544,16 @@ namespace OpenAiFileReport
                 return "Failed to search google!";
             }
             return JsonSerializer.Serialize(results);
+        }
+
+        private string GetWebPage(string url)
+        {
+            if (webScrapper == null)
+            {
+                webScrapper = new Scrapper();
+            }
+            string pageSource = webScrapper.Navigate(url);
+            return pageSource;
         }
 
         private async void BtnSearchPinecone_OnClick(object sender, RoutedEventArgs e)
