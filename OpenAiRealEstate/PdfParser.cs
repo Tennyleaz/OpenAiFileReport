@@ -157,7 +157,16 @@ namespace OpenAiFileReport
     {
         public List<Word> Words { get; set; } = new List<Word>();
         public double? Bottom { get; set; } = null;
-        public double Left => Words.Min(w => w.BoundingBox.Left);
+        public double Left
+        {
+            get
+            {
+                if (Words.Count == 0)
+                    return 0;
+                return Words.Min(w => w.BoundingBox.Left);
+            }
+        }
+
         public void AddWord(Word word)
         {
             if (!InSameLine(word))
@@ -180,6 +189,8 @@ namespace OpenAiFileReport
 
         public string ToString(int leftMargin)
         {
+            if (Words.Count == 0)
+                return string.Empty;
             var sb = new StringBuilder();
             Word prevWord = null;
             var avgCharWidth = Convert.ToInt32(Words.Average(w => w.BoundingBox.Width / w.Text.Length));

@@ -455,7 +455,7 @@ namespace OpenAiFileReport
                     messages: messages,
                     tools: seachTools,
                     toolChoice: "auto",  // let model decide which tool to call (or not)
-                    parallelToolCalls: false  // ensure 0 or 1 function call only
+                    parallelToolCalls: false  // false: ensure 0 or 1 function call only
                     //responseFormat: ChatResponseFormat.JsonSchema,
                     //jsonSchema: new JsonSchema("report_schema", schema)
                 );

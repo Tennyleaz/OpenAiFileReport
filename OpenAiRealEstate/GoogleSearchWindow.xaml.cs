@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
@@ -36,6 +37,14 @@ namespace OpenAiFileReport
                         HorizontalAlignment = HorizontalAlignment.Center,
                         TextWrapping = TextWrapping.Wrap
                     });
+                    TextBlock url = new TextBlock
+                    {
+                        Text = results[i].formattedUrl,
+                        HorizontalAlignment = HorizontalAlignment.Left,
+                        TextWrapping = TextWrapping.Wrap,
+                        Foreground = Brushes.CornflowerBlue,
+                    };
+                    panel.Children.Add(url);
                     panel.Children.Add(new TextBlock
                     {
                         Text = results[i].snippet,
