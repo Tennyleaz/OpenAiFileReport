@@ -177,7 +177,7 @@ namespace OpenAiFileReport
             }
 
             // register tool first
-            seachTools = CreateSearchTool();
+            CreateSearchTool();
             tbLogs.Text += "\nRegistered google search tool.";
 
             IsEnabled = true;
@@ -337,13 +337,13 @@ namespace OpenAiFileReport
             UpsertResponse response = await indexClient.UpsertAsync(request);
         }
 
-        private async Task<string> GenerateSummary(string documentText)
+        private async Task<string> GenerateSummary(string documentText, string systemPrompt)
         {
             ChatRequest chatRequest = new ChatRequest(
                 model: "gpt-4o-mini",
                 messages: new List<Message>()
                 {
-                    new Message(Role.System, "Summarize a document for the user. Use user's input language if possible."),
+                    new Message(Role.System, systemPrompt),
                     new Message(Role.User, documentText)
                 }
             );
@@ -360,7 +360,7 @@ namespace OpenAiFileReport
         /// <returns></returns>
         private async Task SaveSummary(string documentText, string fileName, string vectorid)
         {
-            string summary = await GenerateSummary(documentText);
+            string summary = await GenerateSummary(documentText, "Summarize a document for the user. Use user's input language if possible.");
             EmbeddingsResponse embeddingResponse = await openAiClient.EmbeddingsEndpoint.CreateEmbeddingAsync(summary, EMBEDDING_MODEL);
             // get the embeddings double array
             List<float[]> embeddings = new List<float[]>();
@@ -405,6 +405,8 @@ namespace OpenAiFileReport
                     Tool.TryUnregisterTool(t);
                 }
             }
+            webScrapper?.Dispose();
+
             SaveFileList();
             if (!string.IsNullOrWhiteSpace(tbSystemPromptVector.Text))
                 Properties.Settings.Default.SystemPromptVector = tbSystemPromptVector.Text;
@@ -453,14 +455,14 @@ namespace OpenAiFileReport
                     messages: messages,
                     tools: seachTools,
                     toolChoice: "auto",  // let model decide which tool to call (or not)
-                    parallelToolCalls: true  // ensure 0 or 1 function call only
+                    parallelToolCalls: false  // ensure 0 or 1 function call only
                     //responseFormat: ChatResponseFormat.JsonSchema,
                     //jsonSchema: new JsonSchema("report_schema", schema)
                 );
                 ChatResponse chatResponse = await openAiClient.ChatEndpoint.GetCompletionAsync(chatRequest);
                 
                 // check if the response is a function call
-                if (chatResponse.FirstChoice.Message.ToolCalls?.Count > 0)
+                while (chatResponse.FirstChoice.Message.ToolCalls?.Count > 0)
                 {
                     tbLogs.Text = "Searching google...";
                     // add the previous tool call message from model
@@ -475,8 +477,12 @@ namespace OpenAiFileReport
                     }
 
                     // show a search preview to user
-                    GoogleSearchWindow g = new GoogleSearchWindow(functionResult);
-                    g.Show();
+                    try
+                    {
+                        GoogleSearchWindow g = new GoogleSearchWindow(functionResult);
+                        g.Show();
+                    }
+                    catch (Exception ex) {}
 
                     tbLogs.Text = $"Feed search result to {Model}...";
                     // call gpt again
@@ -484,7 +490,8 @@ namespace OpenAiFileReport
                         model: Model,
                         messages: messages,
                         tools: seachTools,
-                        toolChoice: "auto"
+                        toolChoice: "auto",
+                        parallelToolCalls: false
                     );
                     chatResponse = await openAiClient.ChatEndpoint.GetCompletionAsync(chatRequest);
                 }
@@ -499,12 +506,12 @@ namespace OpenAiFileReport
             }
         }
 
-        private List<Tool> CreateSearchTool()
+        private void CreateSearchTool()
         {
-            Function seachFunction = Function.FromFunc<string, string>(
+            Function seachFunction = Function.FromFunc<string, bool, string>(
                 "google-search-tool",
                 SearchGoogle,
-                "Search google from a query. Returns a list of JSON result.",
+                "Search google from a query. Returns a list of JSON result. First parameter is a string, the query. 2nd parameter is a boolean, set true to sort by date.",
                 true);
             Tool googleSearchTool = new Tool(seachFunction);
             if (!Tool.IsToolRegistered(googleSearchTool))
@@ -516,10 +523,10 @@ namespace OpenAiFileReport
                 }
             }
 
-            Function getPageFunction = Function.FromFunc<string, string>(
+            Function getPageFunction = Function.FromFunc<string, Task<string>>(
                 "webpage-scrap-tool",
-                SearchGoogle,
-                "Go to a url, and scrap it's webpage HTML.",
+                GetWebPage,
+                "Go to a url, and scrap it's webpage HTML, the get summarized plain text through GPT.",
                 true);
             Tool getPageTool = new Tool(getPageFunction);
             if (!Tool.IsToolRegistered(getPageTool))
@@ -532,13 +539,12 @@ namespace OpenAiFileReport
             }
 
             // create search tool
-            List<Tool> seachTools = new List<Tool> { googleSearchTool, getPageTool };
-            return seachTools;
+            seachTools = new List<Tool> { googleSearchTool, getPageTool };
         }
 
-        private string SearchGoogle(string query)
+        private string SearchGoogle(string query, bool isLatest)
         {
-            List<GoogleSearchResult> results = googleCustomSearch.Search(query);
+            List<GoogleSearchResult> results = googleCustomSearch.Search(query, isLatest);
             if (results == null || results.Count == 0)
             {
                 return "Failed to search google!";
@@ -546,14 +552,16 @@ namespace OpenAiFileReport
             return JsonSerializer.Serialize(results);
         }
 
-        private string GetWebPage(string url)
+        private async Task<string> GetWebPage(string url)
         {
             if (webScrapper == null)
             {
                 webScrapper = new Scrapper();
             }
             string pageSource = webScrapper.Navigate(url);
-            return pageSource;
+            string prompt = $"Summarize this webpage scrapped from url: {url}";
+            string summary = await GenerateSummary(pageSource, prompt);
+            return summary;
         }
 
         private async void BtnSearchPinecone_OnClick(object sender, RoutedEventArgs e)

@@ -46,6 +46,7 @@ namespace OpenAiFileReport
             catch (Exception ex)
             {
                 Console.WriteLine("GoogleSearchWindow() error: " + ex);
+                Close();
             }
         }
     }

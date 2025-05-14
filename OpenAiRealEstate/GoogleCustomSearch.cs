@@ -39,11 +39,13 @@ namespace OpenAiFileReport
             }
         }
 
-        public List<GoogleSearchResult> Search(string query)
+        public List<GoogleSearchResult> Search(string query, bool isLatest)
         {
             try
             {
                 string url = $"https://www.googleapis.com/customsearch/v1?key={_apiKey}&cx={SEARCH_ENGINE_ID}&q={Uri.EscapeDataString(query)}";
+                if (isLatest)
+                    url += "&sort=date-sdate:d:s";
                 WebRequest request = WebRequest.Create(url);
                 request.Headers.Add(HttpRequestHeader.AcceptLanguage, "application/json;charset=UTF-8");
                 request.Method = "GET";
