@@ -111,6 +111,10 @@ public partial class MainWindow : Window
             RequestOptions options = new RequestOptions
             {
                 Timeout = TimeSpan.FromMinutes(10),
+                HttpClient = new HttpClient
+                {
+                    Timeout = TimeSpan.FromMinutes(10)
+                }
             };
             var transcript = await assemblyAiClient.Transcripts.TranscribeAsync(audioFileInfo, tp, options, cts.Token);
 
